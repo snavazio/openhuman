@@ -1,8 +1,6 @@
 import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 
-import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,67 +15,6 @@ const devPort = Number(process.env.OPENHUMAN_DEV_PORT) || 1420;
 const hmrPort = devPort + 1;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(
-  readFileSync(resolve(__dirname, "package.json"), "utf8"),
-) as { version: string };
-
-// Canonical Sentry release — must stay in sync with the string produced by
-// `SENTRY_RELEASE` in app/src/utils/config.ts and the core sidecar's
-// `sentry::init` in src/main.rs so events from every surface group together.
-function computeSentryRelease(): string {
-  const raw = (process.env.SENTRY_RELEASE ?? "").trim();
-  if (raw) return raw;
-  const sha = (process.env.VITE_BUILD_SHA ?? "").trim().slice(0, 12);
-  return sha
-    ? `openhuman@${pkg.version}+${sha}`
-    : `openhuman@${pkg.version}`;
-}
-
-// Gate source-map upload on the presence of SENTRY_AUTH_TOKEN so local dev
-// and CI jobs that don't ship to users skip the plugin silently. The
-// companion `SENTRY_ORG` / `SENTRY_PROJECT` come from CI env.
-function maybeSentryPlugin(): PluginOption | null {
-  const authToken = process.env.SENTRY_AUTH_TOKEN;
-  if (!authToken) return null;
-  return sentryVitePlugin({
-    authToken,
-    // Self-hosted Sentry — without `url`, the plugin defaults to sentry.io
-    // and silently no-ops the upload. Falls back to sentry.io if unset for
-    // local builds against the SaaS instance.
-    url: process.env.SENTRY_URL,
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-    release: {
-      name: computeSentryRelease(),
-      // The frontend already passes this release to Sentry.init(). Keeping the
-      // plugin's virtual release module enabled can be transformed by the node
-      // polyfill injector into startup code that calls Rollup helpers before
-      // they are initialized in the generated desktop bundle.
-      inject: false,
-    },
-    sourcemaps: {
-      // Vite emits hashed asset files into `app/dist/assets/`. Upload every
-      // .js / .map the build produces.
-      //
-      // `assets` is resolved by sentry-vite-plugin against `process.cwd()`,
-      // not the Vite `root` — so a relative path like `../dist/**` would
-      // miss when `pnpm tauri build` runs with cwd=`app/` and silently emit
-      // `Didn't find any matching sources for debug ID upload`. Use absolute
-      // paths anchored at this config file's directory (`app/`) to be
-      // immune to whatever cwd the parent process sets.
-      assets: [
-        resolve(__dirname, "dist/**/*.js"),
-        resolve(__dirname, "dist/**/*.map"),
-      ],
-      // Never ship raw .map files to end users; the upload keeps a copy
-      // server-side for symbolication while the bundled app strips them.
-      filesToDeleteAfterUpload: [resolve(__dirname, "dist/**/*.map")],
-    },
-    // Release tagging + commits are handled by sentry-cli / the plugin
-    // itself when AUTH_TOKEN and CI env (GITHUB_SHA etc.) are present.
-    telemetry: false,
-  });
-}
 
 function guardCefRelListSupportsPlugin(): PluginOption {
   return {
@@ -269,10 +206,9 @@ export default defineConfig(async () => ({
     // truthy but not callable. Vite calls it both in the modulepreload
     // polyfill and the dynamic-import preload helper, before React mounts.
     modulePreload: false,
-    // Emit source maps so @sentry/vite-plugin can upload them; the plugin
-    // deletes the on-disk .map files after upload so users don't receive
-    // them in the shipped bundle.
-    sourcemap: true,
+    // LOCAL-ONLY FORK: source maps existed only for the Sentry upload (which
+    // then deleted them), so the shipped bundle never had them. Keep it so.
+    sourcemap: false,
   },
   plugins: [
     nodePolyfills({
@@ -286,7 +222,6 @@ export default defineConfig(async () => ({
     guardCefRelListSupportsPlugin(),
     devConnectPlugin(),
     react(),
-    maybeSentryPlugin(),
   ].filter(Boolean) as PluginOption[],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

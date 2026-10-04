@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 
@@ -316,13 +315,6 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       // validation store. If the backend was genuinely unreachable through
       // all of that this is a connectivity observation, not an app crash
       // (issue #5166).
-      const isTransient =
-        kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
-      Sentry.captureException(new Error(`auth store failed: ${kind}`), {
-        level: isTransient ? 'warning' : 'error',
-        tags: { surface: 'react', phase: 'deep-link-auth-store', auth_store_failure: kind },
-        fingerprint: ['deep-link-auth', 'session-store-failed', kind],
-      });
       console.warn('[DeepLink][auth] session store failed — staying on signin (kind=%s)', kind);
       // `config_unreadable` copy is translated, and this module cannot call
       // `useT()`. Hand the key to the store and let the rendering component
@@ -527,17 +519,6 @@ const handleOAuthDeepLink = async (parsed: URL) => {
       } catch (e) {
         console.warn('[DeepLink] Could not open latest release URL', e);
       }
-      Sentry.captureMessage(
-        `OAuth blocked: stale app version ${versionGate.current}<${versionGate.minimum}`,
-        {
-          level: 'warning',
-          tags: {
-            component: 'desktopDeepLinkListener',
-            current: versionGate.current,
-            minimum: versionGate.minimum,
-          },
-        }
-      );
       window.dispatchEvent(
         new CustomEvent('oauth:stale-app', {
           detail: {

@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { isTauri as isTauriRuntime } from '@tauri-apps/api/core';
 import { revealItemInDir, openUrl as tauriOpenUrl } from '@tauri-apps/plugin-opener';
 import { platform } from '@tauri-apps/plugin-os';
@@ -51,11 +50,9 @@ export const openUrl = async (url: string): Promise<void> => {
     try {
       await tauriOpenUrl(normalizedUrl);
     } catch (err) {
-      Sentry.addBreadcrumb({
-        category: 'ipc',
-        level: 'warning',
-        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
-        data: { url: getTelemetryUrl(normalizedUrl), error: String(err) },
+      console.warn('[openUrl] tauriOpenUrl failed; not falling back to in-app navigation', {
+        url: getTelemetryUrl(normalizedUrl),
+        error: String(err),
       });
       throw err;
     }

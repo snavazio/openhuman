@@ -91,16 +91,6 @@ pub(crate) fn is_broken_pipe_stderr_panic(message: &str) -> bool {
 fn handle_panic(info: &PanicHookInfo<'_>, chain: &dyn Fn(&PanicHookInfo<'_>)) {
     if let Some(message) = payload_message(info) {
         if is_broken_pipe_stderr_panic(message) {
-            sentry::add_breadcrumb(sentry::Breadcrumb {
-                category: Some("panic".into()),
-                level: sentry::Level::Info,
-                message: Some(
-                    "broken-pipe stderr panic (parent stderr closed); \
-                     neutralize_broken_parent_stderr should have prevented this"
-                        .into(),
-                ),
-                ..Default::default()
-            });
             log::debug!("[stderr-panic-guard] broken-pipe stderr panic observed: {message}");
         }
     }

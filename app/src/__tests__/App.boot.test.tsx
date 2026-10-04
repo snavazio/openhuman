@@ -70,9 +70,6 @@ vi.mock('../components/walkthrough/AppWalkthrough', () => ({ default: () => null
 vi.mock('../services/analytics', () => ({ trackPageView: vi.fn() }));
 vi.mock('../utils/accountsFullscreen', () => ({ AGENT_ACCOUNT_ID: '__agent__' }));
 vi.mock('../store/hooks', () => ({ useAppSelector: vi.fn(() => null) }));
-vi.mock('@sentry/react', () => ({
-  ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
 
 describe('App.tsx boot-time service wiring (lines 50-51)', () => {
   it('calls startInternetStatusListener and startCoreHealthMonitor at module load', async () => {

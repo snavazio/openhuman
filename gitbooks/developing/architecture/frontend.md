@@ -77,7 +77,7 @@ _Generated from `app/src/App.tsx` by `scripts/generate-architecture-docs.mjs`. D
 
 | # | Component | Role |
 | --- | --- | --- |
-| 1 | `Sentry.ErrorBoundary` | Crash boundary; renders ErrorFallbackScreen |
+| 1 | `ErrorBoundary` | Crash boundary; renders ErrorFallbackScreen |
 | 2 | `Provider` | Redux store; enables useAppSelector / dispatch app-wide |
 | 3 | `PersistGate` | Holds UI until persisted Redux slices rehydrate |
 | 4 | `ThemeProvider` | Theme tokens and dark-mode handling |

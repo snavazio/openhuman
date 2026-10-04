@@ -145,7 +145,6 @@ rfd = { version = "0.15", default-features = false, features = [
 # time via `option_env!("OPENHUMAN_TAURI_SENTRY_DSN")` in `lib.rs::run()` and
 # can be overridden at runtime via the same env var. Feature set mirrors the
 # core sidecar (`Cargo.toml` at repo root) minus `tracing`.
-sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "debug-images", "httpdate"] }
 
 # Used by the imessage_scanner module.
 anyhow = "1.0"
@@ -204,16 +203,13 @@ openhuman_core = { path = "../openhuman-core", package = "openhuman", default-fe
     "media",
     "inference",
     "voice",
-    "web3",
+    # LOCAL-ONLY FORK: "web3" removed (wallet, x402, cross-chain swaps: all external networks).
     "documents",
     "modules",
     "flows",
     "skills",
     "mcp",
-    # LOCAL-ONLY FORK: kept ON only because lib.rs's Sentry `before_send` filter
-    # calls helpers gated by it. Every `sentry::init` has `dsn: None`, so nothing
-    # is ever transmitted. Stage 2 removes the Sentry block and this feature together.
-    "crash-reporting",
+    # LOCAL-ONLY FORK: "crash-reporting" (Sentry) removed.
     # The desktop shell reaches the in-process core only over
     # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
     # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
@@ -227,12 +223,7 @@ openhuman_core = { path = "../openhuman-core", package = "openhuman", default-fe
     "file-logging",
     "contacts",
     "runtime-node",
-    # Declared "Default-OFF, product-ON" by its own gate comment in the root
-    # Cargo.toml, but it reached neither the product set nor this list, so the
-    # family was compiled in no configuration at all. Registration stays
-    # credential-gated in tools/ops.rs, so a host with no hosting credential
-    # sees no new tools.
-    "hosting",
+    # LOCAL-ONLY FORK: "hosting" removed (TinyHumans-hosted deployment tools).
     # LOCAL-ONLY FORK: "memory-remote" removed (TinyHumans-hosted CortexDB,
     # Supermemory, Mem0, ...). Memory stays on the local SQLite + file-based tree.
 ] }

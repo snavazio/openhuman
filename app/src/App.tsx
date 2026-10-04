@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { useEffect, useRef } from 'react';
 import { Provider } from 'react-redux';
 import {
@@ -19,6 +18,7 @@ import CommandProvider from './components/commands/CommandProvider';
 import ServiceBlockingGate from './components/daemon/ServiceBlockingGate';
 import DictationHotkeyManager from './components/DictationHotkeyManager';
 import ErrorFallbackScreen from './components/ErrorFallbackScreen';
+import ErrorBoundary from './components/ErrorBoundary';
 import HarnessInitOverlay from './components/InitProgressScreen/HarnessInitOverlay';
 import KeyringConsentOverlay from './components/keyring/KeyringConsentOverlay';
 import AppSidebar from './components/layout/shell/AppSidebar';
@@ -104,7 +104,7 @@ function App() {
    * `gitbooks/developing/architecture/frontend.md` and CI (`pnpm docs:check`)
    * fails if the doc drifts. Refresh the doc with `pnpm docs:generate`.
    * Format per line: `<order>. <Component> — <role>` (role must not contain " — ").
-   * 1. Sentry.ErrorBoundary — Crash boundary; renders ErrorFallbackScreen
+   * 1. ErrorBoundary — Crash boundary; renders ErrorFallbackScreen
    * 2. Provider — Redux store; enables useAppSelector / dispatch app-wide
    * 3. PersistGate — Holds UI until persisted Redux slices rehydrate
    * 4. ThemeProvider — Theme tokens and dark-mode handling
@@ -121,7 +121,7 @@ function App() {
   return (
     <div className={`relative h-screen overflow-hidden ${isWindowsDesktop() ? 'rounded-xs' : ''}`}>
       {!onMobile && <WindowDragBar />}
-      <Sentry.ErrorBoundary
+      <ErrorBoundary
         fallback={({ error, componentStack, resetError, eventId }) => (
           <ErrorFallbackScreen
             error={error}
@@ -162,7 +162,7 @@ function App() {
             </ThemeProvider>
           </PersistGate>
         </Provider>
-      </Sentry.ErrorBoundary>
+      </ErrorBoundary>
     </div>
   );
 }

@@ -468,12 +468,6 @@ impl CoreProcessHandle {
         if let Some(preferred) = ready.fallback_from {
             let message = format!("port_fallback_engaged: {preferred} -> {}", ready.port);
             log::warn!("[core] {message}");
-            sentry::add_breadcrumb(sentry::Breadcrumb {
-                category: Some("core.port".to_string()),
-                level: sentry::Level::Warning,
-                message: Some(message),
-                ..Default::default()
-            });
             *self.last_port_fallback.write() = Some(PortFallbackNotice {
                 preferred_port: preferred,
                 chosen_port: ready.port,

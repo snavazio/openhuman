@@ -25,9 +25,9 @@ vi.mock('@tauri-apps/plugin-opener', () => ({
 
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => platformMock() }));
 
-vi.mock('@sentry/react', () => ({
-  addBreadcrumb: (...args: unknown[]) => addBreadcrumbMock(...args),
-}));
+// LOCAL-ONLY FORK: openUrl logs a failed IPC open with console.warn (Sentry
+// removed). Route those calls into the mock so the redaction checks still run.
+vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => addBreadcrumbMock(...args));
 
 describe('openUrl', () => {
   let originalWindowOpen: typeof window.open;
@@ -90,18 +90,14 @@ describe('openUrl', () => {
     );
     expect(windowOpenMock).not.toHaveBeenCalled();
     // Non-http schemes log only the protocol — the rest of the URL (here the
-    // vault path) is the payload itself and must not leak to Sentry.
+    // vault path) is the payload itself and must not leak into the log.
     expect(addBreadcrumbMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        category: 'ipc',
-        level: 'warning',
-        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
-        data: expect.objectContaining({ url: 'obsidian:' }),
-      })
+      '[openUrl] tauriOpenUrl failed; not falling back to in-app navigation',
+      expect.objectContaining({ url: 'obsidian:' })
     );
-    const call = addBreadcrumbMock.mock.calls[0]?.[0] as { data?: { url?: string } } | undefined;
-    expect(call?.data?.url).not.toContain('Vault');
-    expect(call?.data?.url).not.toContain('/Users/me');
+    const call = addBreadcrumbMock.mock.calls[0]?.[1] as { url?: string } | undefined;
+    expect(call?.url).not.toContain('Vault');
+    expect(call?.url).not.toContain('/Users/me');
   });
 
   it('propagates an http opener failure in the desktop shell instead of calling window.open', async () => {
@@ -117,19 +113,15 @@ describe('openUrl', () => {
     );
 
     expect(windowOpenMock).not.toHaveBeenCalled();
-    // Breadcrumb keeps only origin for http(s) — pathname + query (which may
-    // carry tokens / emails / vault paths) must not be sent to Sentry.
+    // The log keeps only origin for http(s) — pathname + query (which may
+    // carry tokens / emails / vault paths) must not be written to the log.
     expect(addBreadcrumbMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        category: 'ipc',
-        level: 'warning',
-        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
-        data: expect.objectContaining({ url: 'https://tinyhumans.ai' }),
-      })
+      '[openUrl] tauriOpenUrl failed; not falling back to in-app navigation',
+      expect.objectContaining({ url: 'https://tinyhumans.ai' })
     );
-    const call = addBreadcrumbMock.mock.calls[0]?.[0] as { data?: { url?: string } } | undefined;
-    expect(call?.data?.url).not.toContain('secret-redact-me');
-    expect(call?.data?.url).not.toContain('/dashboard');
+    const call = addBreadcrumbMock.mock.calls[0]?.[1] as { url?: string } | undefined;
+    expect(call?.url).not.toContain('secret-redact-me');
+    expect(call?.url).not.toContain('/dashboard');
   });
 
   it('treats the desktop shell as desktop while its IPC bridge is still wiring up', async () => {
@@ -229,7 +221,8 @@ describe('openUrl', () => {
     );
     expect(windowOpenMock).not.toHaveBeenCalled();
     expect(addBreadcrumbMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ url: 'https://tinyhumans.ai' }) })
+      '[openUrl] tauriOpenUrl failed; not falling back to in-app navigation',
+      expect.objectContaining({ url: 'https://tinyhumans.ai' })
     );
   });
 });

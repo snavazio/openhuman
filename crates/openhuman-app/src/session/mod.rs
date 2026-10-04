@@ -87,7 +87,3 @@ pub fn install(app: &AppHandle<AppRuntime>, desktop: CoreProcessHandle) {
     });
 }
 
-/// The signed-in user id, for synchronous callers (Sentry `before_send`).
-pub fn peek_user_id() -> Option<String> {
-    openhuman_tinyhumans::identity::peek_user_id()
-}

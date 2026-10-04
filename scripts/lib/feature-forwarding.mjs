@@ -50,6 +50,8 @@
  */
 export const INTENTIONALLY_NOT_FORWARDED = {
   // 'some-gate': 'Reason it must not ship in the desktop build.',
+  'memory-remote':
+    'LOCAL-ONLY FORK: remote memory engines (TinyHumans-hosted CortexDB, Supermemory, Mem0) send memory off-device; the desktop keeps memory on the local SQLite + file tree.',
 };
 
 /**
@@ -431,6 +433,10 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
  * "excluded on purpose" from "forgotten" without going archaeology.
  */
 export const CHAIN_GATES_NOT_FORWARDED = {
+  'openhuman-cli': {
+    'crash-reporting':
+      'LOCAL-ONLY FORK: Sentry is removed from the CLI, desktop shell and TUI; nothing may report crashes off-device.',
+  },
   'openhuman-embed': {
     'e2e-test-support':
       'Exposes the destructive `openhuman.test_reset` RPC for the E2E build only. An embedder must never be able to turn a data wipe on.',

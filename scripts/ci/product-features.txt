@@ -40,7 +40,6 @@ inference
 voice
 
 # Wallet / web3 / x402 domains and their agent tools.
-web3
 
 # Document ingestion and conversion. The synthesis itself is NOT in the binary:
 # `.docx` / `.pptx` generation and PDF extraction run in the loaded `tinydocs`
@@ -66,7 +65,6 @@ skills
 mcp
 
 # Sentry. Without it a crash in the packaged app is invisible to us.
-crash-reporting
 
 # The /rpc JSON-RPC endpoint and the Socket.IO bridge. The shell reaches the
 # in-process core ONLY over http://127.0.0.1:<port>/rpc, so this is mandatory —
@@ -111,10 +109,8 @@ runtime-node
 # forwarding list, so the family compiled in no configuration. Tool
 # registration stays credential-gated (`tools/ops.rs`), so enabling this adds
 # nothing for a host without a hosting credential.
-hosting
 
 
 # Remote memory engines: the `tinymemory::factory` bind path for External
 # memory drivers (TinyHumans-hosted CortexDB, Supermemory, Mem0, Cognee,
 # CortexDB, AgentMemory), the `memory.engine*` RPCs and engine migration.
-memory-remote

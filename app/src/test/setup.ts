@@ -366,22 +366,6 @@ vi.mock('redux-logger', () => ({
     next(action),
 }));
 
-// Mock Sentry
-vi.mock('@sentry/react', () => ({
-  init: vi.fn(),
-  ErrorBoundary: ({
-    children,
-  }: {
-    children: React.ReactNode;
-    fallback?: unknown;
-    onError?: unknown;
-  }) => children,
-  withScope: vi.fn(),
-  captureException: vi.fn(),
-  setTag: vi.fn(),
-  setUser: vi.fn(),
-}));
-
 // Silence console during tests to keep output clean. `debug`/`info` are
 // included because error-path diagnostics across the app (e.g. VoicePanel
 // "voice settings load failed", threadSlice "title refresh failed") use
