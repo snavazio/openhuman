@@ -50,7 +50,10 @@ impl Default for ModulesConfig {
     fn default() -> Self {
         Self {
             enabled: defaults::default_true(),
-            allow_download: defaults::default_true(),
+            // LOCAL-ONLY FORK: modules come from the bundled-modules directory
+            // staged at build time (scripts/release/stage-modules.mjs); never
+            // download at runtime.
+            allow_download: false,
             install_dir: None,
             overrides: Vec::new(),
         }

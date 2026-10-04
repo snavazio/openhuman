@@ -152,7 +152,7 @@ fn the_model_name_falls_back_to_the_crate_default() {
     config.workspace_dir = dir.path().to_path_buf();
     config.default_model = None;
     let composer = OpenHumanContextComposer::new(Arc::new(config));
-    assert_eq!(composer.model_name, DEFAULT_MODEL);
+    assert_eq!(composer.model_name, crate::config::local_default_model());
 
     let pinned = OpenHumanContextComposer::new(config_in(dir.path())).with_model_name("haiku");
     assert_eq!(pinned.model_name, "haiku");

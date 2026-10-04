@@ -60,7 +60,7 @@ pub(super) async fn run_agent_job(
                 let fallback_model = effective
                     .default_model
                     .clone()
-                    .unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string());
+                    .unwrap_or_else(|| crate::config::local_default_model());
                 let resolved_model = match &def.model {
                     ModelSpec::Hint(workload) => {
                         // Resolve the workload's configured model id via the crate

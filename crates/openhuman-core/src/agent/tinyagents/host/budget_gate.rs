@@ -64,7 +64,7 @@ use tinyagents_harness::host::budget_gate::{
 };
 use tinyinference_llm::usage::Usage;
 
-use crate::config::{Config, DEFAULT_MODEL};
+use crate::config::Config;
 use crate::cron::scheduler_gate;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::platform::cost;
@@ -117,7 +117,7 @@ impl OpenHumanBudgetGate {
         let fallback = config
             .default_model
             .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_string());
+            .unwrap_or_else(crate::config::local_default_model);
         Self {
             config,
             compression,

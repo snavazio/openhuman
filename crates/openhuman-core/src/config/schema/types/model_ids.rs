@@ -15,6 +15,21 @@ pub const MODEL_MANAGED_DEFAULT: &str = "openrouter/deepseek/deepseek-v4-flash";
 /// Default model used when no explicit model is configured.
 pub const DEFAULT_MODEL: &str = MODEL_MANAGED_DEFAULT;
 
+/// LOCAL-ONLY FORK: the model used when none is configured. Must be a model your
+/// local OpenAI-compatible server lists at `/v1/models`.
+pub const LOCAL_ONLY_DEFAULT_MODEL: &str = "qwen3:32b";
+
+/// LOCAL-ONLY FORK: the effective fallback model. `OPENHUMAN_LOCAL_LLM_MODEL`
+/// wins; otherwise [`LOCAL_ONLY_DEFAULT_MODEL`]. Replaces every use of the cloud
+/// [`DEFAULT_MODEL`] as a fallback so the route and the request body agree.
+pub fn local_default_model() -> String {
+    std::env::var("OPENHUMAN_LOCAL_LLM_MODEL")
+        .ok()
+        .map(|m| m.trim().to_string())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| LOCAL_ONLY_DEFAULT_MODEL.to_string())
+}
+
 /// The retired managed tier slugs, in the order they were introduced. Older
 /// builds persisted them in `default_model`, the `*_provider` routes, agent
 /// manifests and flow nodes; the config migration rewrites them to

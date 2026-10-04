@@ -84,13 +84,16 @@ pub fn start_boot_catalog_refresh() {
     });
 }
 
+/// LOCAL-ONLY FORK: the boot refresh downloads a ~100k-entry catalog from the
+/// internet (GitHub CDN and others), so it is OFF unless explicitly enabled with
+/// `OPENHUMAN_SKILL_REGISTRY_REFRESH_ON_BOOT=1`.
 fn refresh_on_boot_enabled(raw: Option<&str>) -> bool {
-    let Some(raw) = raw else { return true };
+    let Some(raw) = raw else { return false };
     let value = raw.trim();
-    !(value == "0"
-        || value.eq_ignore_ascii_case("false")
-        || value.eq_ignore_ascii_case("no")
-        || value.eq_ignore_ascii_case("off"))
+    value == "1"
+        || value.eq_ignore_ascii_case("true")
+        || value.eq_ignore_ascii_case("yes")
+        || value.eq_ignore_ascii_case("on")
 }
 
 /// Whether a past-TTL (stale) cache may be served without a network round-trip.

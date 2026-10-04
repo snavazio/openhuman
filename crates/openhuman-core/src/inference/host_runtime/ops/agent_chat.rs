@@ -348,7 +348,7 @@ pub async fn agent_chat_simple(
     let default_model = effective
         .default_model
         .clone()
-        .unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string());
+        .unwrap_or_else(|| crate::config::local_default_model());
 
     let (model, resolved_model): (
         std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,

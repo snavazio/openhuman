@@ -525,6 +525,11 @@ struct AppUpdateInfo {
     body: Option<String>,
 }
 
+/// LOCAL-ONLY FORK: the shell auto-updater is disabled. It would poll GitHub
+/// (tinyhumansai/openhuman releases) and could replace this build with the
+/// upstream binary, silently undoing the fork. Rebuild from source to update.
+const APP_UPDATES_DISABLED: bool = true;
+
 fn no_app_update_available(current_version: String) -> AppUpdateInfo {
     AppUpdateInfo {
         current_version,
@@ -542,6 +547,9 @@ async fn check_app_update(app: tauri::AppHandle<AppRuntime>) -> Result<AppUpdate
 
     let current_version = app.package_info().version.to_string();
     log::info!("[app-update] check requested (current: {current_version})");
+    if APP_UPDATES_DISABLED {
+        return Ok(no_app_update_available(current_version));
+    }
 
     let updater = app
         .updater()
@@ -592,6 +600,9 @@ async fn apply_app_update(
     use tauri_plugin_updater::UpdaterExt;
 
     log::info!("[app-update] manual apply_app_update invoked from frontend");
+    if APP_UPDATES_DISABLED {
+        return Err("app updates are disabled in this local-only build".into());
+    }
 
     let updater = app
         .updater()
@@ -744,6 +755,9 @@ async fn download_app_update(
     use tauri_plugin_updater::UpdaterExt;
 
     log::info!("[app-update] download_app_update invoked from frontend");
+    if APP_UPDATES_DISABLED {
+        return Err("app updates are disabled in this local-only build".into());
+    }
 
     let updater = app
         .updater()
@@ -869,6 +883,9 @@ async fn install_app_update(
     use tauri::Emitter;
 
     log::info!("[app-update] install_app_update invoked from frontend");
+    if APP_UPDATES_DISABLED {
+        return Err("app updates are disabled in this local-only build".into());
+    }
 
     let staged = {
         let mut slot = pending.0.lock().await;
@@ -2442,12 +2459,10 @@ pub fn run() {
     // path do NOT spin up a second client — those have their own reporting
     // surfaces.
     let _sentry_guard = sentry::init(sentry::ClientOptions {
-        dsn: std::env::var("OPENHUMAN_TAURI_SENTRY_DSN")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .or_else(|| option_env!("OPENHUMAN_TAURI_SENTRY_DSN").map(|s| s.to_string()))
-            .filter(|s| !s.is_empty())
-            .and_then(|s| s.parse().ok()),
+        // LOCAL-ONLY FORK: crash reporting is hard-disabled. No DSN is read from
+        // the environment or baked in at compile time, so the client is a no-op
+        // and nothing is ever transmitted off this machine.
+        dsn: None,
         release: Some(std::borrow::Cow::Owned(build_sentry_release_tag())),
         environment: Some(std::borrow::Cow::Owned(resolve_sentry_environment())),
         send_default_pii: false,

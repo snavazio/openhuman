@@ -51,11 +51,18 @@ pub use openhuman_core::util::url::{
 
 /// Production hosted-API root. Used as the final fallback for non-staging
 /// builds when no override is configured.
-pub const DEFAULT_API_BASE_URL: &str = "https://api.tinyhumans.ai";
+///
+/// LOCAL-ONLY FORK: this is a dead loopback address (the TCP discard port), so
+/// any hosted-backend call that survives the local-only routing fails
+/// instantly on this machine instead of reaching TinyHumans. Set `BACKEND_URL`
+/// to opt back in to a real backend.
+pub const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:9";
 
 /// Staging hosted-API root. Activated when `OPENHUMAN_APP_ENV=staging` (or
 /// the Vite equivalent) is set at runtime or baked in at compile time.
-pub const DEFAULT_STAGING_API_BASE_URL: &str = "https://staging-api.tinyhumans.ai";
+///
+/// LOCAL-ONLY FORK: same dead loopback address as [`DEFAULT_API_BASE_URL`].
+pub const DEFAULT_STAGING_API_BASE_URL: &str = "http://127.0.0.1:9";
 
 /// The path the hosted backend appends to its root to expose the
 /// OpenAI-compatible inference proxy. Joined onto [`effective_api_url`] when

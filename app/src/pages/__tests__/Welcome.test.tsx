@@ -341,25 +341,28 @@ describe('Welcome — local login', () => {
     });
   });
 
-  it('renders the "Continue locally" button regardless of runtime mode', () => {
+  // LOCAL-ONLY FORK: there is no account to sign into, so the local session
+  // starts by itself on mount rather than waiting for a click.
+  it('starts the local session automatically on mount, regardless of runtime mode', async () => {
     renderWithProviders(<Welcome />);
 
-    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockStoreSessionToken).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('renders the "Continue locally" button in cloud mode too', () => {
+  it('starts the local session automatically in cloud mode too', async () => {
     renderWithProviders(<Welcome />, {
       preloadedState: { coreMode: { mode: { kind: 'cloud', url: 'http://x', token: 't' } } },
     });
 
-    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockStoreSessionToken).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('calls storeSessionToken with a local session token and navigates to /home', async () => {
+  it('stores a local session token and navigates to onboarding without a click', async () => {
     renderWithProviders(<Welcome />);
-
-    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
-    fireEvent.click(localBtn);
 
     await waitFor(() => {
       expect(mockStoreSessionToken).toHaveBeenCalledTimes(1);
@@ -375,12 +378,11 @@ describe('Welcome — local login', () => {
 
     renderWithProviders(<Welcome />);
 
-    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
-    fireEvent.click(localBtn);
-
     await waitFor(() => {
       expect(screen.getByText(/token save failed/)).toBeInTheDocument();
     });
+    // The button returns as a manual retry after a failure.
+    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
   });
 
   // The reported sign-in failure: the core (typically a container runtime whose
@@ -397,7 +399,6 @@ describe('Welcome — local login', () => {
     );
 
     renderWithProviders(<Welcome />);
-    fireEvent.click(screen.getByRole('button', { name: /Continue locally/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/could not read its configuration file/i)).toBeInTheDocument();

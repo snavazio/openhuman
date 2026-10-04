@@ -38,8 +38,9 @@ pub struct UpdateConfig {
     pub rpc_mutations_enabled: bool,
 }
 
+// LOCAL-ONLY FORK: the core self-updater polls api.github.com, so it is off.
 fn default_update_enabled() -> bool {
-    true
+    false
 }
 
 fn default_update_interval_minutes() -> u32 {

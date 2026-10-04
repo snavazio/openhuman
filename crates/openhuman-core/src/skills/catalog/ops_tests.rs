@@ -51,10 +51,13 @@ async fn install_from_catalog_errors_for_portal_skill_without_download() {
 }
 
 #[test]
-fn refresh_on_boot_enabled_defaults_on_and_accepts_common_false_values() {
-    assert!(refresh_on_boot_enabled(None));
+fn refresh_on_boot_enabled_defaults_off_and_requires_an_explicit_true_value() {
+    // LOCAL-ONLY FORK: off unless explicitly enabled.
+    assert!(!refresh_on_boot_enabled(None));
+    assert!(!refresh_on_boot_enabled(Some("")));
     assert!(refresh_on_boot_enabled(Some("1")));
     assert!(refresh_on_boot_enabled(Some("true")));
+    assert!(refresh_on_boot_enabled(Some(" ON ")));
 
     assert!(!refresh_on_boot_enabled(Some("0")));
     assert!(!refresh_on_boot_enabled(Some("false")));

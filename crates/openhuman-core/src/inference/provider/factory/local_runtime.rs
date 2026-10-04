@@ -37,7 +37,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> OptionalChatModelResult {
-    use tinyinference_local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
+    use tinyinference_local::profile::{MLX_PROFILE, OMLX_PROFILE};
 
     // Use the same classifier as privacy and session policy. Canonicalize only
     // the provider prefix: model IDs (including tags and temperature suffixes)
@@ -87,7 +87,17 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
             .ok()
             .filter(|s| !s.trim().is_empty())
             .or_else(|| std::env::var(env).ok().filter(|s| !s.trim().is_empty()))
-            .or_else(|| config.local_ai.base_url.clone())
+            // LOCAL-ONLY FORK: `[local_ai].base_url` holds the Ollama *root*
+            // (e.g. `http://localhost:11434`), which is what the native `ollama:`
+            // route wants. These OpenAI-compatible routes need `<root>/v1`, so
+            // normalise it here; without this every call 404s ("404 page not
+            // found"). Explicit env values above are used exactly as given.
+            .or_else(|| {
+                config.local_ai.base_url.as_deref().map(|raw| {
+                    let root = raw.trim().trim_end_matches('/').trim_end_matches("/v1");
+                    format!("{root}/v1")
+                })
+            })
             .unwrap_or_else(|| default.to_string())
     };
 
@@ -176,7 +186,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         if model.is_empty() {
             return Some(Err(empty_model_err(&p, "local-openai:<model-id>")));
         }
-        let endpoint = env_or_config_url("LOCAL_OPENAI_URL", LOCAL_OPENAI_PROFILE.default_base_url);
+        let endpoint = env_or_config_url("LOCAL_OPENAI_URL", "http://127.0.0.1:11434/v1");
         let (api_key, auth) = keyed_auth();
         let chat = build_local_runtime_chat_model(
             "local-openai",

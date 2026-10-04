@@ -35,16 +35,8 @@ fn main() {
     // `crash-reporting` feature; a slim build compiles it out entirely.
     #[cfg(feature = "crash-reporting")]
     let _sentry_guard = sentry::init(sentry::ClientOptions {
-        dsn: std::env::var("OPENHUMAN_CORE_SENTRY_DSN")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .or_else(|| std::env::var("OPENHUMAN_SENTRY_DSN").ok())
-            .filter(|s| !s.is_empty())
-            .or_else(|| option_env!("OPENHUMAN_CORE_SENTRY_DSN").map(|s| s.to_string()))
-            .filter(|s| !s.is_empty())
-            .or_else(|| option_env!("OPENHUMAN_SENTRY_DSN").map(|s| s.to_string()))
-            .filter(|s| !s.is_empty())
-            .and_then(|s| s.parse().ok()),
+        // LOCAL-ONLY FORK: crash reporting is hard-disabled (see the desktop shell).
+        dsn: None,
         release: Some(std::borrow::Cow::Owned(build_release_tag())),
         environment: Some(std::borrow::Cow::Owned(resolve_environment())),
         send_default_pii: false,

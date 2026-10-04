@@ -4317,7 +4317,6 @@ dependencies = [
  "tinyjuice-bus",
  "tinymcp",
  "tinymcp-bus",
- "tinymemory",
  "tinymemory-api",
  "tinymemory-bus",
  "tinymemory-conformance",
@@ -7750,18 +7749,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinymemory"
-version = "1.22.4"
-dependencies = [
- "anyhow",
- "async-trait",
- "serde",
- "serde_json",
- "tinymemory-api",
- "tinymemory-remote",
-]
-
-[[package]]
 name = "tinymemory-api"
 version = "0.1.1"
 dependencies = [
@@ -7844,22 +7831,6 @@ dependencies = [
  "rusqlite",
  "serde",
  "tinymemory-api",
-]
-
-[[package]]
-name = "tinymemory-remote"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "futures",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "tinymemory-api",
- "tokio",
 ]
 
 [[package]]

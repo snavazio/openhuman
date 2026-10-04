@@ -210,6 +210,9 @@ openhuman_core = { path = "../openhuman-core", package = "openhuman", default-fe
     "flows",
     "skills",
     "mcp",
+    # LOCAL-ONLY FORK: kept ON only because lib.rs's Sentry `before_send` filter
+    # calls helpers gated by it. Every `sentry::init` has `dsn: None`, so nothing
+    # is ever transmitted. Stage 2 removes the Sentry block and this feature together.
     "crash-reporting",
     # The desktop shell reaches the in-process core only over
     # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
@@ -230,8 +233,8 @@ openhuman_core = { path = "../openhuman-core", package = "openhuman", default-fe
     # credential-gated in tools/ops.rs, so a host with no hosting credential
     # sees no new tools.
     "hosting",
-    # Remote memory engines (TinyHumans-hosted CortexDB, Supermemory, Mem0, ...).
-    "memory-remote",
+    # LOCAL-ONLY FORK: "memory-remote" removed (TinyHumans-hosted CortexDB,
+    # Supermemory, Mem0, ...). Memory stays on the local SQLite + file-based tree.
 ] }
 
 [target.'cfg(unix)'.dependencies]

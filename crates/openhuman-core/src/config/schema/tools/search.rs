@@ -65,8 +65,14 @@ pub struct SearxngConfig {
     pub timeout_secs: u64,
 }
 
+/// LOCAL-ONLY FORK: point at your self-hosted SearXNG with
+/// `OPENHUMAN_SEARXNG_BASE_URL` (e.g. `http://100.x.x.x:8080`).
 fn default_searxng_base_url() -> String {
-    "http://localhost:8080".into()
+    std::env::var("OPENHUMAN_SEARXNG_BASE_URL")
+        .ok()
+        .map(|u| u.trim().to_string())
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| "http://localhost:8080".into())
 }
 
 fn default_searxng_max_results() -> usize {
@@ -84,7 +90,7 @@ fn default_searxng_timeout_secs() -> u64 {
 impl Default for SearxngConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             base_url: default_searxng_base_url(),
             max_results: default_searxng_max_results(),
             default_language: default_searxng_language(),
@@ -401,13 +407,11 @@ impl Default for SearchConfig {
     }
 }
 
-/// Fresh installs: managed Exa for ranked search and contents, managed Gemini
-/// for grounded answers. Both need a signed-in session to become usable.
+/// LOCAL-ONLY FORK: fresh installs use only the self-hosted SearXNG instance
+/// (direct route, no key, no managed backend). SearXNG serves the `search`
+/// role only; `answer` and `contents` have no local provider by default.
 fn default_providers() -> BTreeMap<String, SearchProviderSettings> {
-    BTreeMap::from([
-        ("exa".to_string(), SearchProviderSettings::managed()),
-        ("gemini".to_string(), SearchProviderSettings::managed()),
-    ])
+    BTreeMap::from([("searxng".to_string(), SearchProviderSettings::direct())])
 }
 
 /// Legacy inputs that lived outside `[search]`.

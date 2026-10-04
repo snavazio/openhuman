@@ -35,8 +35,12 @@ pub struct NodeConfig {
     pub prefer_system: bool,
 }
 
+// LOCAL-ONLY FORK: off by default. Enabling it makes the core download a managed
+// Node.js distribution from nodejs.org at startup. To use the JS tools, set
+// `[node] enabled = true` and keep a system `node` of the same major version on
+// PATH (`prefer_system = true` reuses it without downloading).
 fn default_enabled() -> bool {
-    true
+    false
 }
 
 fn default_version() -> String {

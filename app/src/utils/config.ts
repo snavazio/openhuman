@@ -5,8 +5,10 @@ const APP_ENV = (import.meta.env.VITE_OPENHUMAN_APP_ENV as string | undefined)
   ?.trim()
   .toLowerCase();
 
-const DEFAULT_BACKEND_URL =
-  APP_ENV === 'staging' ? 'https://staging-api.tinyhumans.ai' : 'https://api.tinyhumans.ai';
+// LOCAL-ONLY FORK: dead loopback address (TCP discard port), mirroring the core's
+// DEFAULT_API_BASE_URL, so no fallback path can reach TinyHumans. Set
+// VITE_BACKEND_URL at build time to opt back in to a real backend.
+const DEFAULT_BACKEND_URL = 'http://127.0.0.1:9';
 
 /**
  * Build-time fallback for the Core JSON-RPC endpoint URL.
@@ -131,25 +133,20 @@ export const SKILLS_GITHUB_REPO =
 export const DERIVED_TRANSCRIPT_ENABLED = import.meta.env.VITE_DERIVED_TRANSCRIPT !== 'false';
 
 /** Google Analytics 4 Measurement ID. Leave blank to disable GA. */
-export const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+// LOCAL-ONLY FORK: telemetry is hard-disabled; VITE_* values are ignored.
+export const GA_MEASUREMENT_ID: string | undefined = undefined;
 
 /** When true, allow GA in dev builds (for local debugging). Set `VITE_GA_FORCE_DEV=true` in `.env.local`. */
 export const GA_FORCE_DEV = import.meta.env.VITE_GA_FORCE_DEV === 'true';
 
 /** OpenPanel project client id. Leave blank to disable OpenPanel analytics. */
-export const OPENPANEL_CLIENT_ID = (
-  (import.meta.env.VITE_OPENPANEL_CLIENT_ID as string | undefined) ??
-  'e9c996d5-497f-4eec-9bde-630019ad525b'
-).trim();
+export const OPENPANEL_CLIENT_ID = '';
 
 /** OpenPanel API base URL. */
-export const OPENPANEL_API_URL = (
-  (import.meta.env.VITE_OPENPANEL_API_URL as string | undefined) ??
-  'https://panel.tinyhumans.ai/api'
-).trim();
+export const OPENPANEL_API_URL = '';
 
 /** Sentry DSN for error reporting. Leave blank to disable. */
-export const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+export const SENTRY_DSN: string | undefined = undefined;
 
 /**
  * Build-time fallback for the backend API base URL.

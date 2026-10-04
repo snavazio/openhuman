@@ -5,18 +5,8 @@ use crate::config::schema::Config;
 
 impl Config {
     pub(super) fn apply_observability_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {
-        let dsn_value = env
-            .get("OPENHUMAN_CORE_SENTRY_DSN")
-            .or_else(|| env.get("OPENHUMAN_SENTRY_DSN"))
-            .or_else(|| option_env!("OPENHUMAN_CORE_SENTRY_DSN").map(|s| s.to_string()))
-            .or_else(|| option_env!("OPENHUMAN_SENTRY_DSN").map(|s| s.to_string()));
-        if let Some(dsn) = dsn_value {
-            let dsn = dsn.trim();
-            if !dsn.is_empty() {
-                self.observability.sentry_dsn = Some(dsn.to_string());
-            }
-        }
-
+        // LOCAL-ONLY FORK: Sentry DSNs are intentionally ignored (env and
+        // compile-time). `observability.sentry_dsn` stays `None`.
         if let Some(flag) = env.get("OPENHUMAN_ANALYTICS_ENABLED") {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {

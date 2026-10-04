@@ -77,7 +77,7 @@ use crate::agent::prompts::{
     load_agents_md_layers, render_connected_identities, AgentsMdContent, ConnectedIntegration,
     LearnedContextData, PromptContext, PromptTool, SystemPromptBuilder, ToolCallFormat,
 };
-use crate::config::{Config, DEFAULT_MODEL};
+use crate::config::Config;
 use crate::skills::Workflow;
 
 /// Composes OpenHuman's system prompt for a TinyAgents turn.
@@ -146,7 +146,7 @@ impl OpenHumanContextComposer {
         let model_name = config
             .default_model
             .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_string());
+            .unwrap_or_else(crate::config::local_default_model);
         Self {
             config,
             model_name,

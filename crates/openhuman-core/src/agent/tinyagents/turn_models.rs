@@ -12,6 +12,10 @@ use crate::agent::tinyagents::routes;
 use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
 use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
+/// LOCAL-ONLY FORK: context window assumed for local models OpenHuman has no
+/// size for (see `effective_context_window`).
+const LOCAL_ONLY_DEFAULT_CONTEXT_WINDOW: u64 = 32_768;
+
 pub(crate) fn tinyagents_depth_error(
     err: &tinyagents_harness::TinyAgentsError,
 ) -> Option<crate::agent::subagent_host::SubagentRunError> {
@@ -428,9 +432,35 @@ impl TurnModelSource {
         let local_kind = provider_string
             .as_deref()
             .and_then(tinyinference_local::profile::kind_from_provider_string);
+        let known_window = crate::inference::model_context::context_window_for_model(model);
+        // LOCAL-ONLY FORK: an unrecognised local model used to fall back to the
+        // provider profile's 8,192-token default. OpenHuman's own system prompt
+        // is ~7.7k tokens, so the trimmer dropped the user's message to fit and
+        // the model answered "what would you like me to do?". Use a realistic
+        // window instead: `OPENHUMAN_LOCAL_CONTEXT_WINDOW`, else
+        // `[local_ai] num_ctx`, else 32,768.
+        if local_kind.is_some() && known_window.is_none() {
+            let configured = self
+                .crate_native
+                .as_ref()
+                .and_then(|source| source.config.local_ai.num_ctx)
+                .map(u64::from);
+            let window = std::env::var("OPENHUMAN_LOCAL_CONTEXT_WINDOW")
+                .ok()
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|v| *v > 0)
+                .or(configured)
+                .unwrap_or(LOCAL_ONLY_DEFAULT_CONTEXT_WINDOW);
+            tracing::debug!(
+                model,
+                context_window = window,
+                "[turn_models] local model context window (local-only default)"
+            );
+            return Some(window);
+        }
         tinyinference_local::profile::context_window_with_local_fallback(
             model,
-            crate::inference::model_context::context_window_for_model(model),
+            known_window,
             local_kind,
         )
     }

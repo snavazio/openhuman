@@ -35,12 +35,14 @@ pub struct ObservabilityConfig {
     pub agent_tracing: AgentTracingConfig,
 }
 
+// LOCAL-ONLY FORK: telemetry defaults to off.
 fn default_analytics_enabled() -> bool {
-    true
+    false
 }
 
+// LOCAL-ONLY FORK: never share agent traces off-machine by default.
 fn default_share_usage_data() -> bool {
-    true
+    false
 }
 
 /// Destination format for the agent tracing export. Vendor-neutral
@@ -95,7 +97,7 @@ pub struct AgentTracingConfig {
 }
 
 fn default_capture_content() -> bool {
-    true
+    false
 }
 
 impl Default for AgentTracingConfig {
@@ -113,7 +115,7 @@ impl Default for ObservabilityConfig {
     fn default() -> Self {
         Self {
             sentry_dsn: None,
-            analytics_enabled: true,
+            analytics_enabled: false,
             share_usage_data: default_share_usage_data(),
             agent_tracing: AgentTracingConfig::default(),
         }

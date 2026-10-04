@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 use super::config::default_temperature_unsupported_models;
 use super::config::DEFAULT_TEMPERATURE;
-use super::model_ids::DEFAULT_MODEL;
 use crate::config::schema::*;
 
 impl Default for Config {
@@ -38,7 +37,9 @@ impl Default for Config {
             api_key: None,
             inference_url: None,
             ephemeral_route: None,
-            default_model: Some(DEFAULT_MODEL.to_string()),
+            // LOCAL-ONLY FORK: unset, so every fallback resolves through
+            // `local_default_model()` instead of the managed cloud model.
+            default_model: None,
             default_temperature: DEFAULT_TEMPERATURE,
             output_language: None,
             temperature_unsupported_models: default_temperature_unsupported_models(),

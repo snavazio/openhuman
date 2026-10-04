@@ -1,5 +1,5 @@
 import createDebug from 'debug';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
@@ -92,6 +92,16 @@ const Welcome = () => {
       setIsLocalSigningIn(false);
     }
   };
+
+  // LOCAL-ONLY FORK: there is no TinyHumans account to sign into. Start the
+  // offline local session automatically (once) instead of waiting for a click.
+  const autoLocalLoginStarted = useRef(false);
+  useEffect(() => {
+    if (autoLocalLoginStarted.current) return;
+    autoLocalLoginStarted.current = true;
+    void handleLocalLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleTheme = () => {
     dispatch(setThemeMode(isDark ? 'light' : 'dark'));

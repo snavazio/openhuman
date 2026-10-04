@@ -3,7 +3,38 @@
 
 use super::*;
 
+/// LOCAL-ONLY FORK: an unset (or `"cloud"`) route never reaches the managed
+/// TinyHumans backend. It resolves to a `local-openai:<model>` route whose
+/// endpoint comes from `OPENHUMAN_LOCAL_INFERENCE_URL` (e.g.
+/// `http://100.x.x.x:11434/v1` over Tailscale), else `LOCAL_OPENAI_URL`, else
+/// `[local_ai].base_url`, else Ollama on this machine.
+fn local_only_provider_string(config: &Config) -> String {
+    // A model the user picked in Settings wins; the managed cloud default and
+    // the retired tier slugs are not local models, so they are ignored.
+    let model = config
+        .default_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|m| {
+            // Not a local model: empty, the managed cloud default, a retired
+            // tier slug, or an internal `hint:*` role marker (the web channel
+            // sets `hint:chat` per turn; passing it on makes Ollama 404).
+            !m.is_empty()
+                && *m != crate::config::MODEL_MANAGED_DEFAULT
+                && !crate::config::is_legacy_tier_model(m)
+                && !super::tiers::is_known_openhuman_tier(m)
+        })
+        .map(str::to_owned)
+        .unwrap_or_else(crate::config::local_default_model);
+    format!("{LOCAL_OPENAI_PROVIDER_PREFIX}{model}")
+}
+
 pub(super) fn resolve_primary_cloud_provider_string(config: &Config) -> String {
+    local_only_provider_string(config)
+}
+
+#[allow(dead_code)]
+fn resolve_primary_cloud_provider_string_upstream(config: &Config) -> String {
     let primary = config
         .primary_cloud
         .as_deref()

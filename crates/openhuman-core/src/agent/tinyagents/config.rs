@@ -22,7 +22,7 @@ use tinyagents_harness::config::{
 };
 
 use crate::config::{
-    AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract, DEFAULT_MODEL,
+    AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract,
 };
 
 /// Translates OpenHuman's free-form `agent.tool_dispatcher` string into the
@@ -67,7 +67,7 @@ pub fn session_config_from(config: &Config) -> SessionConfig {
         config
             .default_model
             .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+            .unwrap_or_else(crate::config::local_default_model),
     );
 
     session.temperature = Some(config.default_temperature);

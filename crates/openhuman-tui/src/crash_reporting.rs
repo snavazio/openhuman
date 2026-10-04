@@ -41,16 +41,8 @@ pub fn init_crash_reporting() {}
 
 #[cfg(feature = "crash-reporting")]
 fn sentry_dsn() -> Option<sentry::types::Dsn> {
-    std::env::var("OPENHUMAN_CORE_SENTRY_DSN")
-        .ok()
-        .filter(|value| !value.is_empty())
-        .or_else(|| std::env::var("OPENHUMAN_SENTRY_DSN").ok())
-        .filter(|value| !value.is_empty())
-        .or_else(|| option_env!("OPENHUMAN_CORE_SENTRY_DSN").map(str::to_owned))
-        .filter(|value| !value.is_empty())
-        .or_else(|| option_env!("OPENHUMAN_SENTRY_DSN").map(str::to_owned))
-        .filter(|value| !value.is_empty())
-        .and_then(|value| value.parse().ok())
+    // LOCAL-ONLY FORK: crash reporting is hard-disabled; no DSN is ever resolved.
+    None
 }
 
 #[cfg(feature = "crash-reporting")]

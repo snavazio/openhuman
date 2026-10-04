@@ -21,7 +21,7 @@ describe('Tauri content security policy', () => {
 
   it('retains the existing script execution requirements', () => {
     expect(scriptSourceTokens).toEqual(
-      expect.arrayContaining(["'self'", "'wasm-unsafe-eval'", 'https://www.googletagmanager.com'])
+      expect.arrayContaining(["'self'", "'wasm-unsafe-eval'"])
     );
   });
 });

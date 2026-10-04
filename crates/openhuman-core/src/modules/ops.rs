@@ -67,9 +67,17 @@ fn bundled_releases_dir() -> Option<PathBuf> {
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    // LOCAL-ONLY FORK: `~/.openhuman/bundled-modules` is a built-in candidate. The
+    // module loader refuses any bundle with a group-writable ancestor directory
+    // (common under a shared `~/projects/...` checkout), and the home directory
+    // is the one location that is reliably clean. Ranked after the explicit env
+    // var but before the folder beside the executable.
+    let home_bundle = dirs::home_dir().map(|home| home.join(".openhuman").join(BUNDLED_MODULES_DIR));
     resolve_bundled_dir(
         BUNDLED_RELEASES.get().cloned(),
-        std::env::var_os(BUNDLED_MODULES_ENV).map(PathBuf::from),
+        std::env::var_os(BUNDLED_MODULES_ENV)
+            .map(PathBuf::from)
+            .or(home_bundle),
         exe_dir,
     )
 }

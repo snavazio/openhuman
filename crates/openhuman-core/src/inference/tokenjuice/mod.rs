@@ -123,7 +123,7 @@ pub async fn install_from_config(config: &crate::config::Config) -> Result<(), S
         config
             .default_model
             .clone()
-            .unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string()),
+            .unwrap_or_else(|| crate::config::local_default_model()),
         &config.workspace_dir,
     );
     let request = install_request(config);

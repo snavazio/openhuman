@@ -292,7 +292,7 @@ impl SessionHostBuilder {
 
         let model_name = self
             .model_name
-            .unwrap_or_else(|| crate::config::DEFAULT_MODEL.into());
+            .unwrap_or_else(crate::config::local_default_model);
 
         // Assemble the per-session ContextManager. The manager owns
         // the prompt builder, the reduction pipeline, and the
