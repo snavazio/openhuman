@@ -132,22 +132,6 @@ export const SKILLS_GITHUB_REPO =
  */
 export const DERIVED_TRANSCRIPT_ENABLED = import.meta.env.VITE_DERIVED_TRANSCRIPT !== 'false';
 
-/** Google Analytics 4 Measurement ID. Leave blank to disable GA. */
-// LOCAL-ONLY FORK: telemetry is hard-disabled; VITE_* values are ignored.
-export const GA_MEASUREMENT_ID: string | undefined = undefined;
-
-/** When true, allow GA in dev builds (for local debugging). Set `VITE_GA_FORCE_DEV=true` in `.env.local`. */
-export const GA_FORCE_DEV = import.meta.env.VITE_GA_FORCE_DEV === 'true';
-
-/** OpenPanel project client id. Leave blank to disable OpenPanel analytics. */
-export const OPENPANEL_CLIENT_ID = '';
-
-/** OpenPanel API base URL. */
-export const OPENPANEL_API_URL = '';
-
-/** Sentry DSN for error reporting. Leave blank to disable. */
-export const SENTRY_DSN: string | undefined = undefined;
-
 /**
  * Build-time fallback for the backend API base URL.
  *
@@ -204,17 +188,6 @@ export const APP_ENVIRONMENT: 'production' | 'staging' | 'development' = IS_DEV
 export const BUILD_SHA = ((import.meta.env.VITE_BUILD_SHA as string | undefined) ?? '')
   .trim()
   .slice(0, 12);
-
-/**
- * Canonical Sentry release identifier: `openhuman@<version>[+<short_sha>]`.
- *
- * Matches the tag the Rust core sidecar reports (see `src/main.rs`) so events
- * from the frontend, the core, and source-map uploads all group under the
- * same release in the Sentry dashboard.
- */
-export const SENTRY_RELEASE = BUILD_SHA
-  ? `openhuman@${APP_VERSION}+${BUILD_SHA}`
-  : `openhuman@${APP_VERSION}`;
 
 /**
  * Minimum **desktop app** semver required for OAuth deep-link completion (`openhuman://oauth/success`).
@@ -302,13 +275,6 @@ export const SUPPORT_URL_ACCEPTS_REF =
   SUPPORT_URL_ACCEPTS_REF_OVERRIDE !== undefined && SUPPORT_URL_ACCEPTS_REF_OVERRIDE !== ''
     ? SUPPORT_URL_ACCEPTS_REF_OVERRIDE === 'true'
     : Boolean(SUPPORT_URL_OVERRIDE);
-
-/**
- * Set `VITE_SENTRY_SMOKE_TEST=true` in one build (or in `.env.local`) to
- * fire a one-shot diagnostic event at `initSentry()` time and verify the
- * Sentry pipeline end-to-end. Has no effect in normal builds.
- */
-export const SENTRY_SMOKE_TEST = import.meta.env.VITE_SENTRY_SMOKE_TEST === 'true';
 
 /**
  * ElevenLabs voice ID used for the mascot's reply speech. `JBFqnCBsd6RMkjVDRZzb`

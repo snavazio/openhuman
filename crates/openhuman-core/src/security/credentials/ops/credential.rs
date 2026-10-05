@@ -21,7 +21,7 @@ use crate::security::credentials::session_support::{
     session_token_from_profile, user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
 use crate::security::credentials::{
-    api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    api_key, identity, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
 use super::gated_services::{
@@ -192,7 +192,6 @@ pub async fn set_credential(
         // API-key-backed runs must not retain a previous session identity in
         // prompt composition or observability scope.
         identity::clear_current_user();
-        sentry_scope::clear();
         if !was_authenticated {
             start_credential_gated_services(config).await;
         } else {
@@ -316,10 +315,8 @@ pub async fn set_credential(
     // An API key wins over a session for every backend request. Keep the
     // process identity aligned with that effective credential.
     if api_key::has_api_key(&effective_config) {
-        sentry_scope::clear();
         identity::clear_current_user();
     } else {
-        sentry_scope::bind(&user_id);
         identity::set_current_user(resolved.user.clone().or_else(|| {
             existing
                 .as_ref()
@@ -429,9 +426,6 @@ pub async fn clear_credential(
             // Clearing the preferred API key exposes the surviving session.
             // Restore the session's process identity immediately.
             if let Some(profile) = load_app_session_profile(config)? {
-                if let Some(user_id) = profile.metadata.get("user_id") {
-                    sentry_scope::bind(user_id);
-                }
                 identity::set_current_user(
                     profile
                         .metadata
@@ -449,7 +443,6 @@ pub async fn clear_credential(
     if removed_session && api_key::has_api_key(config) {
         start_credential_gated_services(config).await;
         crate::cron::scheduler_gate::set_signed_out(false);
-        sentry_scope::clear();
         identity::clear_current_user();
         logs.push("credential-gated services restarted for api key".to_string());
     }
@@ -517,7 +510,6 @@ async fn clear_session_credential(config: &Config) -> Result<Outcome<bool>, Stri
         Err(error) => return Err(format!("failed to resolve signed-out workspace: {error}")),
     }
 
-    sentry_scope::clear();
     logs.push("session cleared".to_string());
     Ok(Outcome::new(removed, logs))
 }

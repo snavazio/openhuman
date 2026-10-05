@@ -33,9 +33,6 @@ server = [
     "dep:uuid",
     "dep:urlencoding",
 ]
-# Forwarded so the server's Sentry-routing tests run against a core that
-# reports to Sentry.
-crash-reporting = ["openhuman-core/crash-reporting"]
 
 [dependencies]
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
@@ -62,7 +59,6 @@ tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crat
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 tempfile = "3"
 tokio = { version = "1", features = ["full", "test-util"] }
 tower = { version = "0.5", default-features = false }

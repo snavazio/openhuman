@@ -533,7 +533,6 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 # `openhuman-rpc`. See the `http-server` feature note below and
 # `crates/openhuman-core/src/core/http_server_status.rs`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
-sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
 url = "2"
 tempfile = "3"
 fs2 = "0.4"
@@ -746,19 +745,11 @@ tinywallet = { path = "../../vendor/tinywallet", default-features = false, featu
 # `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module)
 # initialises it; the bins that used to share it live in `crates/openhuman-cli`.
 env_logger = "0.11"
-# Enable sentry's TestTransport for runtime smoke of the observability
-# before_send filter (see tests/observability_smoke.rs). `default-features
-# = false` here is load-bearing — sentry's default feature set pulls in
-# actix-web / actix-http / actix-server / sentry-actix and ~13 transitive
-# crates we never use (and that bloat the dev Cargo.lock noticeably).
-# TestTransport only needs the `test` feature.
-sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 # axum is optional in `[dependencies]` (exclusive to the default-ON
 # `http-server` feature, #5048), but ~17 `#[cfg(test)]` modules stand up
 # in-process axum mock servers / call `build_core_http_router` regardless of
 # the feature set under test. Declaring a plain (non-optional) dev-dep keeps
-# those tests compiling in ALL test builds without per-file `#[cfg]` — mirrors
-# the `sentry` dual-declaration above. The prod fns those tests exercise are
+# those tests compiling in ALL test builds without per-file `#[cfg]`. The prod fns those tests exercise are
 # still gated, so the *tests* naming them carry `#[cfg(feature = "http-server")]`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
 # `tower` was a plain runtime dep only for its re-exports in the axum server
@@ -791,7 +782,7 @@ proptest = "1"
 # all of the tree. The gates turned OFF are the ones that carry the graph —
 # web3's ethers/secp256k1 cohort, `documents`' zstd/bzip2 native builds,
 # `voice`+`inference`'s cpal/lettre/arboard/enigo/rdev stack, `contacts`'
-# macOS objc2 cohort and `crash-reporting`'s sentry tree. The terminal-specific
+# macOS objc2 cohort. The terminal-specific
 # ratatui/crossterm cohort lives in the separate `openhuman-tui` package.
 # Turning the core gates off takes a
 # bare `cargo check` from 540 packages / 7 native builds down to ~350 / 2, which
@@ -1116,28 +1107,6 @@ skills = []
 # the orchestrator prompt sanitises *skill* descriptions through it. The gate
 # follows the real dependency graph, not the directory name.
 mcp = []
-# Sentry crash/error reporting: the `sentry::init` guard + secret-scrubbing
-# `before_send` hook (src/main.rs), the sentry-tracing bridge layer
-# (core::logging), the ~24 `before_send` Event classifiers + the two
-# `report_*_message` capture paths (core::observability), the session-boundary
-# scope binding (credentials::sentry_scope), and the `openhuman sentry-test`
-# CLI probe. Default-ON — the desktop app always ships with crash reporting.
-# Slim / headless builds opt out via `--no-default-features --features
-# "<explicit list without crash-reporting>"`, which drops the exclusive
-# `sentry` dependency (and its transitive backtrace/contexts/panic/tracing/
-# debug-images/reqwest/rustls stack) from the non-test build.
-#
-# TYPE CARVE-OUT (see AGENTS.md "Compile-time domain gates"): the sentry-free
-# string classifiers (`is_transient_message_failure`,
-# `is_insufficient_credits_message`, `contains_transient_transport_phrase`, …)
-# and the `report_*_message` / `sentry_scope::{bind,clear}` signatures stay
-# compiled in BOTH builds — only the `sentry::`-touching bodies are gated — so
-# NO stub file is needed and always-on callers need no per-call `#[cfg]`. When
-# off, `report_error_message`/`report_warning_message` still emit their
-# `tracing::{error,warn}!` diagnostic, `sentry_tracing_layer()` degrades to a
-# no-op `Identity` layer, and `openhuman sentry-test` returns a "built without
-# the crash-reporting feature" error.
-crash-reporting = ["dep:sentry"]
 
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,

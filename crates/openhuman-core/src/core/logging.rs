@@ -227,8 +227,7 @@ fn event_matches_file_constraints(meta: &tracing::Metadata<'_>, constraints: &[S
 /// 2. Sets up an `EnvFilter` from `RUST_LOG` or the defaults.
 /// 3. Detects terminal capabilities for ANSI colors.
 /// 4. Registers a formatting layer with [`CleanCliFormat`].
-/// 5. Integrates Sentry for error tracking.
-/// 6. Bridges legacy `log::info!` macros.
+/// 5. Bridges legacy `log::info!` macros.
 ///
 /// It is idempotent and will only initialize the subscriber once per process.
 pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
@@ -261,7 +260,6 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
         let _ = tracing_subscriber::registry()
             .with(filter)
             .with(fmt_layer)
-            .with(sentry_tracing_layer())
             .try_init();
 
         // Bridge the `log` crate. Rides with `file-logging` because
@@ -282,7 +280,6 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
 ///     `<data_dir>/logs/openhuman-YYYY-MM-DD.log` so packaged GUI builds —
 ///     where stderr is invisible — still produce a log users can share for
 ///     support,
-///   * the Sentry breadcrumb/event layer,
 ///   * the `tracing_log::LogTracer` bridge so the Tauri shell's `log::*`
 ///     calls (currently routed through `env_logger`) flow into the same
 ///     file alongside core `tracing::*` events.
@@ -379,16 +376,14 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
             .with(filter)
             .with(stderr_layer)
             .with(file_layer)
-            .with(sentry_tracing_layer())
             .try_init();
-        // Same chain minus the file layer. Stderr and Sentry are unaffected by
+        // Same chain minus the file layer. Stderr is unaffected by
         // this gate, so a build without file logging still logs everywhere it
         // did before — it just keeps nothing on disk.
         #[cfg(not(feature = "file-logging"))]
         let init_result = tracing_subscriber::registry()
             .with(filter)
             .with(stderr_layer)
-            .with(sentry_tracing_layer())
             .try_init();
 
         match init_result {
@@ -425,7 +420,7 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
 /// stderr would corrupt the rendered UI. So — unlike [`init_for_cli_run`]
 /// (stderr) and [`init_for_embedded`] (stderr + file) — this installs **only**
 /// a daily-rotated file appender at `<data_dir>/logs/openhuman-YYYY-MM-DD.log`
-/// plus the Sentry layer (which keeps no console handle). Core boot logs and
+/// Core boot logs and
 /// the `[tui]` state-transition logs land in that file for post-mortem
 /// debugging without ever touching the screen.
 ///
@@ -494,7 +489,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
             });
 
         // NOTE: no stderr layer here — that is the whole point of this entry
-        // point. Only the file layer + Sentry are attached.
+        // point. Only the file layer is attached.
         // NOTE: still no stderr layer in either arm. A stderr fallback here
         // would write into the alternate screen and corrupt the TUI, so the
         // off-state keeps only the in-memory `tui_layer` — which is what the
@@ -504,14 +499,12 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
             .with(filter)
             .with(file_layer)
             .with(tui_layer)
-            .with(sentry_tracing_layer())
             .try_init()
             .is_ok();
         #[cfg(not(feature = "file-logging"))]
         let tui_init_ok = tracing_subscriber::registry()
             .with(filter)
             .with(tui_layer)
-            .with(sentry_tracing_layer())
             .try_init()
             .is_ok();
 
@@ -566,7 +559,7 @@ pub fn log_directory() -> Option<&'static Path> {
 /// able to `remove_dir_all(<data_dir>)` on Windows. Without releasing this
 /// guard the host process holds an open handle inside `<data_dir>/logs/`
 /// and Windows returns `ERROR_SHARING_VIOLATION` (os error 32). The stderr
-/// and Sentry layers stay attached because they don't keep files open.
+/// layers stay attached because they don't keep files open.
 ///
 /// **Not idempotent in the recover-after-call sense**: there is no re-init
 /// path. A subsequent `init_for_embedded` is a no-op (the `Once` guard has
@@ -614,39 +607,6 @@ fn build_env_filter(verbose: bool, default_scope: CliLogDefault) -> tracing_subs
             tracing_subscriber::EnvFilter::new(if verbose { "debug" } else { "info" })
         }
     })
-}
-
-#[cfg(feature = "crash-reporting")]
-fn sentry_tracing_layer<S>() -> impl Layer<S>
-where
-    S: tracing::Subscriber + for<'a> LookupSpan<'a>,
-{
-    sentry::integrations::tracing::layer().event_filter(|md: &tracing::Metadata<'_>| {
-        // Events emitted from `report_error_message` are captured directly via
-        // `sentry::capture_message` at the call site (see
-        // `core::observability::REPORT_ERROR_TRACING_TARGET` for rationale).
-        // Skip them here so we don't double-report.
-        if md.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
-            return sentry::integrations::tracing::EventFilter::Ignore;
-        }
-        match *md.level() {
-            Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
-            Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
-            _ => sentry::integrations::tracing::EventFilter::Ignore,
-        }
-    })
-}
-
-/// Sentry-free build: the Sentry breadcrumb/event bridge collapses to a no-op
-/// `Identity` layer so the two `.with(sentry_tracing_layer())` call sites keep
-/// compiling unchanged (they add a layer that does nothing). Same signature as
-/// the `crash-reporting` version above.
-#[cfg(not(feature = "crash-reporting"))]
-fn sentry_tracing_layer<S>() -> impl Layer<S>
-where
-    S: tracing::Subscriber + for<'a> LookupSpan<'a>,
-{
-    tracing_subscriber::layer::Identity::new()
 }
 
 #[cfg(test)]

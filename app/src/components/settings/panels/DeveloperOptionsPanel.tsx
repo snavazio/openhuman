@@ -8,9 +8,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import { triggerSentryTestEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
-import { APP_ENVIRONMENT } from '../../../utils/config';
 // `safeInvoke` (aliased to `invoke`) converts the CEF
 // `window.ipc.postMessage` synchronous throw — Sentry TAURI-REACT-7 /
 // TAURI-REACT-6 — into a rejected Promise so the existing `.catch(...)` /
@@ -258,65 +256,6 @@ const CoreModeBadge = () => {
   );
 };
 
-type SentryTestStatus =
-  | { kind: 'idle' }
-  | { kind: 'sending' }
-  | { kind: 'sent'; eventId: string | undefined }
-  | { kind: 'error'; message: string };
-
-const SentryTestRow = () => {
-  const { t } = useT();
-  const [status, setStatus] = useState<SentryTestStatus>({ kind: 'idle' });
-
-  const onClick = async () => {
-    setStatus({ kind: 'sending' });
-    try {
-      const eventId = await triggerSentryTestEvent();
-      setStatus({ kind: 'sent', eventId });
-    } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
-    }
-  };
-
-  return (
-    <Alert variant="warning">
-      <div className="w-full">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <AlertTitle>{t('devOptions.triggerSentryTest')}</AlertTitle>
-            <AlertDescription>{t('devOptions.triggerSentryTestDesc')}</AlertDescription>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onClick}
-            disabled={status.kind === 'sending'}
-            className="shrink-0 bg-amber-600 hover:bg-amber-500">
-            {status.kind === 'sending' ? t('devOptions.sending') : t('devOptions.sendTestEvent')}
-          </Button>
-        </div>
-        <div role="status" aria-live="polite" aria-atomic="true" className="mt-2 text-xs">
-          {status.kind === 'sent' && (
-            <span className="text-amber-900 dark:text-amber-300">
-              {t('devOptions.eventSent')}.{' '}
-              {status.eventId ? (
-                <span className="font-mono">id: {status.eventId}</span>
-              ) : (
-                <span>{t('devOptions.sentryDisabled')}</span>
-              )}
-            </span>
-          )}
-          {status.kind === 'error' && (
-            <span className="text-coral-600 dark:text-coral-300">
-              {t('devOptions.failed')}: {status.message}
-            </span>
-          )}
-        </div>
-      </div>
-    </Alert>
-  );
-};
-
 const LogsFolderRow = () => {
   const { t } = useT();
   const [path, setPath] = useState<string | null>(null);
@@ -385,7 +324,6 @@ const DeveloperOptionsPanel = () => {
   const { t } = useT();
   const navigate = useNavigate();
   const { navigateToSettings } = useSettingsNavigation();
-  const showSentryTest = APP_ENVIRONMENT === 'staging';
 
   // Trailing actions (restart tour) that don't fit cleanly in any group
   const restartTourItem = {
@@ -451,7 +389,6 @@ const DeveloperOptionsPanel = () => {
       <div className="pt-2 pb-5 flex flex-col gap-3">
         <CoreModeBadge />
         <LogsFolderRow />
-        {showSentryTest && <SentryTestRow />}
       </div>
     </SettingsPanel>
   );

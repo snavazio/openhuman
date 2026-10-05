@@ -112,9 +112,9 @@ describe('findEntryByRoute', () => {
 
 describe('entriesForSection', () => {
   it('returns only entries belonging to the requested section', () => {
-    const cryptoEntries = entriesForSection('crypto');
-    expect(cryptoEntries.length).toBeGreaterThan(0);
-    cryptoEntries.forEach(e => expect(e.section).toBe('crypto'));
+    const accountEntries = entriesForSection('account');
+    expect(accountEntries.length).toBeGreaterThan(0);
+    accountEntries.forEach(e => expect(e.section).toBe('account'));
   });
 
   it('excludes hidden deep-links', () => {

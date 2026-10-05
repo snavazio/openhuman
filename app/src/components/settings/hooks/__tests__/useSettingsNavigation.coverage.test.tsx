@@ -92,13 +92,6 @@ describe('notifications (retired)', () => {
     expectRoute('/settings/notifications', 'home'));
 });
 
-describe('crypto section leaves', () => {
-  test('recovery-phrase resolves to recovery-phrase', () =>
-    expectRoute('/settings/recovery-phrase', 'recovery-phrase'));
-  test('wallet-balances resolves to wallet-balances', () =>
-    expectRoute('/settings/wallet-balances', 'wallet-balances'));
-});
-
 describe('developer section leaves', () => {
   // Cron moved to the Workflows module (`/flows?view=schedules`), so the old
   // settings slug falls through to home the same way 'intelligence' does.

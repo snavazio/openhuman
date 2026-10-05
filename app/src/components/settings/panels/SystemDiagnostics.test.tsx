@@ -80,19 +80,6 @@ describe('<SystemDiagnostics />', () => {
     expect(screen.queryByRole('button', { name: /Send test event/i })).toBeNull();
   });
 
-  test('renders the Sentry test row in staging and fires the helper on click', async () => {
-    hoisted.appEnvironment = 'staging';
-    hoisted.trigger.mockResolvedValue('event-id-xyz');
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
-
-    const button = screen.getByRole('button', { name: /Send test event/i });
-    fireEvent.click(button);
-
-    await waitFor(() => expect(hoisted.trigger).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByText(/event-id-xyz/)).toBeInTheDocument());
-  });
-
   test('resets the walkthrough and navigates home from the restart-tour row', async () => {
     const Panel = await importPanel();
     renderWithProviders(<Panel />);

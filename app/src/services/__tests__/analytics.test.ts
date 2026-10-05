@@ -10,7 +10,6 @@ import {
   trackAnalyticsEvent,
   trackEvent,
   trackPageView,
-  triggerSentryTestEvent,
 } from '../analytics';
 
 // LOCAL-ONLY FORK: analytics is a no-op module. Nothing may be loaded or sent.
@@ -37,9 +36,6 @@ describe('analytics (local-only no-op)', () => {
     expect(() => stop()).not.toThrow();
   });
 
-  it('has no Sentry event id to return', async () => {
-    await expect(triggerSentryTestEvent()).resolves.toBeUndefined();
-  });
 
   it('keeps the event allowlist so typed call sites still compile', () => {
     expect(ALLOWED_EVENTS.has('ui_click')).toBe(true);

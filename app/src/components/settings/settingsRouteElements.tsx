@@ -20,7 +20,6 @@ import MigrationPanel from './panels/MigrationPanel';
 import PermissionsPanel from './panels/PermissionsPanel';
 import PersonaPanel from './panels/PersonaPanel';
 import PrivacyPanel from './panels/PrivacyPanel';
-import RecoveryPhrasePanel from './panels/RecoveryPhrasePanel';
 import SandboxSettingsPanel from './panels/SandboxSettingsPanel';
 import SecurityPanel from './panels/SecurityPanel';
 import ThemeStudioPanel from './panels/ThemeStudioPanel';
@@ -129,9 +128,9 @@ export function settingsRouteElements(): ReactNode {
       {/* ── Data ────────────────────────────────────────────────── */}
       {/* Data Sync is a first-class surface on the Brain page now. */}
       <Route path="memory-sync" element={<Navigate to="/brain?tab=sync" replace />} />
-      {/* Wallet balances moved to the Connections page (Integrations group). */}
-      <Route path="wallet-balances" element={<Navigate to="/connections?tab=wallet" replace />} />
-      <Route path="recovery-phrase" element={wrapSettingsPage(<RecoveryPhrasePanel />)} />
+      {/* LOCAL-ONLY FORK: the crypto wallet is compiled out; old links land on Connections. */}
+      <Route path="wallet-balances" element={<Navigate to="/connections" replace />} />
+      <Route path="recovery-phrase" element={<Navigate to="/connections" replace />} />
 
       {/* ── Connections ─────────────────────────────────────────── */}
       {/* The Integrations settings section was retired; the composio/OAuth grid
@@ -208,7 +207,7 @@ export function settingsRouteElements(): ReactNode {
         path="agents-settings"
         element={<Navigate to="/connections?tab=agent-tools" replace />}
       />
-      <Route path="crypto" element={<Navigate to="/connections?tab=wallet" replace />} />
+      <Route path="crypto" element={<Navigate to="/connections" replace />} />
       <Route path="notifications-hub" element={<SettingsRedirect to="/settings/account" />} />
       {/* Composio (API key + routing) moved to Connections → API keys. */}
       <Route path="composio" element={<Navigate to="/connections?tab=composio-key" replace />} />

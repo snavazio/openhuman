@@ -69,8 +69,3 @@ export function trackAnalyticsEvent(
 export function startUiInteractionTracking(): () => void {
   return () => {};
 }
-
-/** Sentry is removed, so there is never an event id. */
-export async function triggerSentryTestEvent(): Promise<string | undefined> {
-  return undefined;
-}

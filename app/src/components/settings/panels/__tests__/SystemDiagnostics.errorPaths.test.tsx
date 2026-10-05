@@ -170,29 +170,4 @@ describe('<SystemDiagnostics /> failure paths', () => {
     await waitFor(() => expect(screen.queryByText('transient')).not.toBeInTheDocument());
   });
 
-  test('reports a failed Sentry test event instead of claiming it sent', async () => {
-    // `:88` — the send's catch. The success path is covered by the sibling
-    // file; a rejection previously left the row on its "sending" label with no
-    // indication anything went wrong.
-    hoisted.appEnvironment = 'staging';
-    hoisted.trigger.mockRejectedValue(new Error('DSN rejected the event'));
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Send test event' }));
-
-    await waitFor(() => expect(screen.getByText(/DSN rejected the event/)).toBeInTheDocument());
-    expect(screen.queryByText(/Event sent/)).not.toBeInTheDocument();
-  });
-
-  test('stringifies a non-Error Sentry rejection', async () => {
-    hoisted.appEnvironment = 'staging';
-    hoisted.trigger.mockRejectedValue('network down');
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Send test event' }));
-
-    await waitFor(() => expect(screen.getByText(/network down/)).toBeInTheDocument());
-  });
 });

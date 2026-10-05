@@ -333,40 +333,6 @@ fn extract_backend_returned_status_handles_mixed_case() {
 // `report_composio_op_error` events flood Sentry again with no test in
 // the composio crate to catch it. These guards make the link explicit.
 
-#[cfg(feature = "crash-reporting")]
-#[test]
-fn composio_domain_502_is_dropped_by_before_send() {
-    let mut event = sentry::protocol::Event::default();
-    let mut tags: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    tags.insert("domain".into(), "composio".into());
-    tags.insert("failure".into(), "non_2xx".into());
-    tags.insert("status".into(), "502".into());
-    event.tags = tags;
-    assert!(
-        crate::core::observability::is_transient_integrations_failure(&event),
-        "composio non_2xx 502 must be dropped by integrations filter (#1608)"
-    );
-}
-
-#[cfg(feature = "crash-reporting")]
-#[test]
-fn composio_transport_timeout_is_dropped_by_before_send() {
-    let mut event = sentry::protocol::Event::default();
-    let mut tags: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    tags.insert("domain".into(), "composio".into());
-    tags.insert("failure".into(), "transport".into());
-    event.tags = tags;
-    event.message = Some(
-        "POST /agent-integrations/composio/execute failed: error sending request → \
-         operation timed out"
-            .to_string(),
-    );
-    assert!(
-        crate::core::observability::is_transient_integrations_failure(&event),
-        "composio transport timeout must be dropped by integrations filter (#1608)"
-    );
-}
-
 // ── TAURI-RUST-X9 (#1166): direct-mode auth-rejection routing ───────────
 //
 // Pins the contract that direct-mode 401 / Invalid API key shapes are

@@ -27,7 +27,6 @@ import SearchPanel from '../components/settings/panels/SearchPanel';
 import ToolsPanel from '../components/settings/panels/ToolsPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoiceConnectionsPanel from '../components/settings/panels/VoiceConnectionsPanel';
-import WalletPanel from '../components/settings/panels/WalletPanel';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import {
   SKILL_CATEGORY_LABEL_KEYS,
@@ -486,8 +485,7 @@ type ConnectionsTab =
   | 'search'
   | 'computer'
   | 'usage'
-  | 'composio-key'
-  | 'wallet';
+  | 'composio-key';
 
 /**
  * Tabs that render a relocated settings panel inside the shared card surface.
@@ -529,7 +527,6 @@ const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'computer',
   'composio-key',
   'usage',
-  'wallet',
 ]);
 
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
@@ -541,7 +538,6 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'computer',
   'usage',
   'composio-key',
-  'wallet',
 ]);
 
 export default function Skills() {
@@ -570,8 +566,7 @@ export default function Skills() {
       raw === 'search' ||
       raw === 'computer' ||
       raw === 'usage' ||
-      raw === 'composio-key' ||
-      raw === 'wallet'
+      raw === 'composio-key'
     )
       return raw;
     // Legacy back-compat aliases
@@ -1041,14 +1036,6 @@ export default function Skills() {
                     label: t('computer.title'),
                     icon: navIcon('M4 5h16v11H4zM8 20h8m-4-4v4'),
                   },
-                  {
-                    // Wallet balances relocated from Settings → Data.
-                    value: 'wallet',
-                    label: t('pages.settings.account.walletBalances'),
-                    icon: navIcon(
-                      'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
-                    ),
-                  },
                 ],
               },
               {
@@ -1208,7 +1195,6 @@ export default function Skills() {
                 )}
                 {/* Usage owns its page shell (header chip tabs), like LLM. */}
                 {activeTab === 'usage' && <UsagePanel />}
-                {activeTab === 'wallet' && <WalletPanel />}
               </SettingsLayoutProvider>
             ) : (
               <>

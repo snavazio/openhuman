@@ -453,27 +453,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // `/notifications` notification-center page, handled inline in Settings.tsx.
 
   // =========================================================================
-  // CRYPTO section leaf panels
-  // =========================================================================
-  {
-    id: 'recovery-phrase',
-    titleKey: 'pages.settings.account.recoveryPhrase',
-    descriptionKey: 'pages.settings.account.recoveryPhraseDesc',
-    section: 'crypto',
-    searchKeywords: ['mnemonic', 'seed', 'backup', 'recovery', 'wallet'],
-    navParent: 'wallet-balances',
-  },
-  {
-    // Surfaced on the Connections page (Integrations group); route redirects
-    // there. Entry kept for search + deep-link compatibility.
-    id: 'wallet-balances',
-    titleKey: 'pages.settings.account.walletBalances',
-    descriptionKey: 'pages.settings.account.walletBalancesDesc',
-    section: 'crypto',
-    searchKeywords: ['wallet', 'balance', 'tokens', 'crypto'],
-  },
-
-  // =========================================================================
   // DEVELOPER — debug-only entries (devOnly === true)
   // These live ONLY under Settings → Developer & Diagnostics.
   // Items removed from this list compared to the old DeveloperOptionsPanel:

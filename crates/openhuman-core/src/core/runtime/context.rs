@@ -997,17 +997,10 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
     } else {
         log::debug!("[boot] skills legacy-workflow prune SKIPPED — Skills domain disabled");
     }
-    // Boot-time Sentry user binding — issue #3135. If the user is
-    // already signed in (typical desktop restart), the auth-profile
-    // store has their `user_id` *now*, before any background loop
-    // (Composio sync tick, cron, etc.) fires its first event.
-    // Reading from the store here means subsequent events carry
-    // `user.id` even when no `app_state_snapshot` RPC has run yet.
+    // Seed the process identity from the auth-profile store at boot, before
+    // any background loop runs.
     match crate::security::credentials::session_support::build_session_state(cfg) {
         Ok(state) => {
-            if let Some(uid) = state.user_id.as_deref() {
-                crate::security::credentials::sentry_scope::bind(uid);
-            }
             // The host-supplied user payload survives restarts in the profile
             // store; seed the identity slot from it so prompt composition sees
             // the signed-in user before any host RPC runs.
