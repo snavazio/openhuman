@@ -585,3 +585,19 @@ fn classify_inference_error_in_stream_tool_history_rejection_uses_malformed_hist
         classified.message
     );
 }
+
+#[test]
+fn classify_inference_error_tool_name_with_402_is_not_credit_exhaustion() {
+    // A resumed thread listed `x402_request` among its missing tools; the bare
+    // "402" in that name used to surface as "You're out of credits".
+    let raw = "run_chat_task failed client_id=abc thread_id=t-1 request_id=r-1 \
+               error=driver failed: session tool snapshot declares non-executable tools: \
+               wallet_status, x402_request, web3_swap_quote";
+    let classified = classify_inference_error(raw);
+    assert_ne!(classified.error_type, "budget_exhausted");
+    assert!(
+        !classified.message.to_ascii_lowercase().contains("credit"),
+        "must not blame credits for a tool failure: {}",
+        classified.message
+    );
+}
