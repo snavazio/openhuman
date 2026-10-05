@@ -11,15 +11,11 @@ omit_safety_preamble = false
 omit_profile = true
 omit_memory_md = true
 
-# Pinned to a dedicated OpenRouter passthrough model rather than the
-# deprecated `hint:vision` (regression R4). This exact id is in
-# `MANAGED_MULTIMODAL_MODELS`, so it keeps the multimodal tier needed to
-# inspect a reference/first-frame image or the returned thumbnail when
-# shaping an image-to-video request. Actual video generation goes through
-# `media_generate_video`, which defaults to `bytedance/seedance-2.0-mini` on
-# OpenRouter — a separate model from the one this agent's own turns run on.
+# Local-only fork: runs on the `vision` workload (the configured
+# `vision_provider`) so it can inspect reference / first-frame images. The
+# upstream OpenRouter passthrough pin only works on managed routes.
 [model]
-exact = "openrouter/qwen/qwen3.5-flash-02-23"
+hint = "vision"
 
 [tools]
 # media_generate_video submits the generation and returns a saved local path;
