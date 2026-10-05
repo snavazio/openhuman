@@ -207,3 +207,39 @@ fn unrecorded_missing_tool_still_fails_beside_recorded_stub() {
     assert!(message.contains("host_bug_tool"));
     assert!(!message.contains("wallet_status"));
 }
+
+#[test]
+fn failure_partial_persists_original_input_not_the_provider_copy() {
+    // The snapshot mirrors the provider request, whose user row can carry an
+    // inline image data URI; persisting it would bloat every later turn.
+    let snapshot = Arc::new(std::sync::Mutex::new(
+        crate::agent::tinyagents::TranscriptSnapshot {
+            messages: vec![
+                Message::system("stable prefix"),
+                Message::user("describe [IMAGE:data:image/png;base64,AAAA]"),
+                Message::assistant("accepted tool round"),
+            ],
+            accepted_len: 3,
+            request_base_len: 2,
+            ..Default::default()
+        },
+    ));
+    let original = vec![
+        Message::system("stable prefix"),
+        Message::user("describe [Image: image #att:abc123]"),
+    ];
+    let failure = restore_request_prefix(
+        driver_error_with_snapshot(
+            "provider rejected follow-up",
+            &snapshot,
+            &sidecar(),
+            std::time::Duration::from_millis(1),
+            "chat-v1",
+        ),
+        &original,
+    );
+    let history = failure.partial.expect("partial").history;
+    assert_eq!(history.len(), 3);
+    assert_eq!(history[1].text(), "describe [Image: image #att:abc123]");
+    assert_eq!(history[2].text(), "accepted tool round");
+}

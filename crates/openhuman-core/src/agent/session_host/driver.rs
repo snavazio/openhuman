@@ -144,16 +144,17 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             )
             .map_err(driver_error)?;
 
-        let mut messages: Vec<TranscriptMessage> = request
+        let messages: Vec<TranscriptMessage> = request
             .history
             .iter()
             .filter_map(crate::agent::message_convert::message_to_native_chat_message)
             .collect();
-        if (turn_models.supports_vision() || self.model_vision)
-            && crate::agent::multimodal::has_image_placeholders(&messages)
-        {
-            messages = crate::agent::multimodal::rehydrate_image_placeholders(&messages);
-        }
+        let messages = crate::agent::multimodal::prepare_turn_messages(
+            messages,
+            turn_models.supports_vision() || self.model_vision,
+            context_mw.runtime_config.as_deref(),
+        )
+        .await;
 
         // Runtime's `ToolSnapshot` remains the model declaration and final
         // allowlist. The actual executable instances must be supplied by the
@@ -220,12 +221,15 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
         {
             Ok(outcome) => outcome,
             Err(error) => {
-                return Err(driver_error_with_snapshot(
-                    error,
-                    &snapshot,
-                    &sidecar,
-                    started.elapsed(),
-                    &self.model_name,
+                return Err(restore_request_prefix(
+                    driver_error_with_snapshot(
+                        error,
+                        &snapshot,
+                        &sidecar,
+                        started.elapsed(),
+                        &self.model_name,
+                    ),
+                    &request.history,
                 ));
             }
         };
@@ -491,6 +495,21 @@ fn ensure_snapshot_tools_are_executable(
             missing.join(", ")
         )))
     }
+}
+
+/// Put the turn's original input back at the head of a failure's partial
+/// history. The snapshot mirrors what the provider was sent, and that copy can
+/// carry inline image bytes (`multimodal::prepare_turn_messages`) that must
+/// never be persisted; the input rows themselves are unchanged by the turn.
+fn restore_request_prefix(mut failure: DriverFailure, original: &[Message]) -> DriverFailure {
+    if let Some(partial) = failure.partial.as_mut() {
+        if partial.history.len() >= original.len() {
+            partial
+                .history
+                .splice(..original.len(), original.iter().cloned());
+        }
+    }
+    failure
 }
 
 fn driver_error_with_snapshot(

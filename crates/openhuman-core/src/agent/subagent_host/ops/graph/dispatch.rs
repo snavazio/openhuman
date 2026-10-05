@@ -144,13 +144,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     // advertises vision or the sub-agent model is user-flagged as vision-capable
     // (BYOK/custom). The expanded copy is provider-only — the persisted `history`
     // written back below keeps the original markers.
-    let dispatch_history = if (turn_models.supports_vision() || model_vision)
-        && crate::agent::multimodal::has_image_placeholders(history)
-    {
-        crate::agent::multimodal::rehydrate_image_placeholders(history)
-    } else {
-        history.clone()
-    };
+    let dispatch_history = crate::agent::multimodal::prepare_turn_messages(
+        history.clone(),
+        turn_models.supports_vision() || model_vision,
+        config,
+    )
+    .await;
 
     // Build the sub-agent's context middleware from the live `[context]` config +
     // the agent's TokenJuice profile (#4466), matching how the chat path wires

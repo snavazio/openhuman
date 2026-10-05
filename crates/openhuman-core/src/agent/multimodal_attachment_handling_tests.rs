@@ -314,3 +314,34 @@ async fn sweep_keeps_fresh_attachments() {
         "fresh attachment {id} retained after sweep"
     );
 }
+
+#[tokio::test]
+async fn prepare_turn_messages_sends_image_bytes_not_a_disk_path_to_vision_models() {
+    // A sub-agent or session turn on a vision model used to stop at the
+    // rehydrated `[IMAGE:<disk path>]` marker, which reached the provider as
+    // plain text: the model got a path and invented the picture.
+    let msg = format!("describe [IMAGE:{TINY_PNG_DATA_URI}]");
+    let placeholdered = stash_image_attachments(&msg, &MultimodalConfig::default()).await;
+    let messages = vec![TranscriptMessage::user(placeholdered)];
+
+    let prepared = prepare_turn_messages(messages, true, None).await;
+    let content = &prepared[0].content;
+    assert!(
+        content.contains("[IMAGE:data:image/png"),
+        "vision model receives inline image bytes: {content}"
+    );
+    assert!(
+        !content.contains("#att:"),
+        "placeholder consumed: {content}"
+    );
+}
+
+#[tokio::test]
+async fn prepare_turn_messages_leaves_non_vision_turns_untouched() {
+    let msg = format!("describe [IMAGE:{TINY_PNG_DATA_URI}]");
+    let placeholdered = stash_image_attachments(&msg, &MultimodalConfig::default()).await;
+    let messages = vec![TranscriptMessage::user(placeholdered.clone())];
+
+    let prepared = prepare_turn_messages(messages, false, None).await;
+    assert_eq!(prepared[0].content, placeholdered, "byte-identical request");
+}
