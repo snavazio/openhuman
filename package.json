@@ -55,7 +55,7 @@
     "profile:tauri": "cargo run --manifest-path crates/openhuman-app/profiling/Cargo.toml --",
     "test:install-ps1": "pwsh -NoProfile -File scripts/tests/OpenHumanWindowsInstall.Tests.ps1",
     "rust:check": "pnpm --filter openhuman-app rust:check",
-    "rust:clippy": "cargo clippy -p openhuman -p openhuman-cli -p openhuman-tinyhumans -- -D warnings && pnpm --filter openhuman-app rust:clippy",
+    "rust:clippy": "cargo clippy -p openhuman -p openhuman-cli -- -D warnings && pnpm --filter openhuman-app rust:clippy",
     "rust:layout": "node scripts/ci/check-openhuman-rust-layout.mjs",
     "rust:ignored-tests": "node scripts/ci/check-ignored-tests.mjs",
     "dep:audit": "bash scripts/dep-audit/run.sh",

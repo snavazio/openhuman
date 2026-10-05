@@ -1,19 +1,15 @@
-//! The desktop session owner: login-token exchange, `/auth/me` and the
-//! current-user cache live in `openhuman-tinyhumans`; this module is the glue
-//! that gives it a link to the embedded (or gateway) core, exposes it to the
-//! renderer as Tauri commands, and forwards its change events as Tauri events.
-//!
-//! The core only *holds* the credential (`auth.set_credential`). Everything
-//! that talks to the backend's auth endpoints happens here, in the shell
-//! process, with the same `x-sdk-name` / version attribution headers the core
-//! sends on its own backend traffic.
+//! The desktop session owner. LOCAL-ONLY FORK: there is no backend account;
+//! the core's `LocalSessionManager` accepts only the offline local session.
+//! This module gives it a link to the embedded (or gateway) core, exposes it
+//! to the renderer as Tauri commands, and forwards its change events as Tauri
+//! events. The core holds the credential (`auth.set_credential`).
 
 pub(crate) mod commands;
 mod link;
 
 use std::sync::Arc;
 
-use openhuman_tinyhumans::{ClientHeaders, SessionEvent, SessionManager};
+use openhuman_core::security::credentials::local_session::{LocalSessionManager, SessionEvent};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core_process::CoreProcessHandle;
@@ -22,7 +18,7 @@ use crate::AppRuntime;
 pub(crate) use link::HttpCoreLink;
 
 /// Tauri event emitted whenever the credential or the current user changes.
-/// Payload: `openhuman_tinyhumans::SessionState`.
+/// Payload: `local_session::SessionState`.
 pub const AUTH_CHANGED_EVENT: &str = "auth://changed";
 /// Tauri event emitted when the backend rejected the stored credential and it
 /// has been cleared. Payload: `{ source }`.
@@ -30,19 +26,14 @@ pub const AUTH_EXPIRED_EVENT: &str = "auth://expired";
 
 /// Managed Tauri state: the one session manager for this shell process.
 pub struct SessionHost {
-    pub manager: Arc<SessionManager<HttpCoreLink>>,
+    pub manager: Arc<LocalSessionManager<HttpCoreLink>>,
 }
 
 impl SessionHost {
     pub fn new(desktop: CoreProcessHandle) -> Self {
-        // The shell and the core ship as one release, so one version answers
-        // for both `x-core-version` and `x-tauri-version`.
-        let headers = ClientHeaders::new(openhuman_tinyhumans::product_identity().as_str())
-            .with_core_version(env!("CARGO_PKG_VERSION"))
-            .with_tauri_version(env!("CARGO_PKG_VERSION"));
         let link = Arc::new(HttpCoreLink::new(desktop));
         Self {
-            manager: SessionManager::new(link, headers),
+            manager: LocalSessionManager::new(link),
         }
     }
 }

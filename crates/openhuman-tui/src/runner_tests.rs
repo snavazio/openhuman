@@ -65,13 +65,11 @@ fn tui_invokes_use_canonical_registered_rpc_method_names() {
         "openhuman.config_get_privacy_mode",
         "openhuman.config_set_privacy_mode",
         "openhuman.auth_get_state",
-        // Session ownership lives in `openhuman-tinyhumans`; these are the
-        // credential RPCs its `CoreLink` drives through the in-process link.
-        openhuman_tinyhumans::link::AUTH_GET_STATE,
-        openhuman_tinyhumans::link::AUTH_GET_SESSION_TOKEN,
-        openhuman_tinyhumans::link::AUTH_SET_CREDENTIAL,
-        openhuman_tinyhumans::link::AUTH_CLEAR_CREDENTIAL,
-        openhuman_tinyhumans::link::CONFIG_RESOLVE_API_URL,
+        // The credential RPCs the local session owner drives through the
+        // in-process link.
+        openhuman_core::security::credentials::local_session::AUTH_GET_STATE,
+        openhuman_core::security::credentials::local_session::AUTH_SET_CREDENTIAL,
+        openhuman_core::security::credentials::local_session::AUTH_CLEAR_CREDENTIAL,
     ];
     methods.push("openhuman.skills_list");
     methods.push("openhuman.mcp_clients_installed_list");

@@ -1,15 +1,14 @@
-//! The TUI's session owner: `openhuman-tinyhumans` over an in-process
-//! [`CoreRuntime`]. Login-token exchange and `/auth/me` happen here, in the
-//! TUI process; the core only receives the resulting credential through
-//! `auth.set_credential`.
+//! The TUI's session owner. LOCAL-ONLY FORK: the core's
+//! [`LocalSessionManager`] over an in-process [`CoreRuntime`] — no backend, no
+//! HTTP, no bearer. Only the offline local session is accepted.
 
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use openhuman_core::core::runtime::CoreRuntime;
-use openhuman_tinyhumans::{ClientHeaders, CoreLink, SessionManager};
+use openhuman_core::security::credentials::local_session::{CoreLink, LocalSessionManager};
 
-/// `CoreLink` over `CoreRuntime::invoke` — no HTTP, no bearer.
+/// `CoreLink` over `CoreRuntime::invoke`.
 pub struct InProcessLink(pub Arc<CoreRuntime>);
 
 #[async_trait]
@@ -23,15 +22,13 @@ impl CoreLink for InProcessLink {
     }
 }
 
-static MANAGER: OnceLock<Arc<SessionManager<InProcessLink>>> = OnceLock::new();
+static MANAGER: OnceLock<Arc<LocalSessionManager<InProcessLink>>> = OnceLock::new();
 
 /// The one session manager for this TUI process, bound to `runtime` on first
 /// use. A TUI process hosts exactly one runtime, so later callers get the
 /// same manager regardless of the handle they pass.
-pub fn session_manager(runtime: &Arc<CoreRuntime>) -> Arc<SessionManager<InProcessLink>> {
+pub fn session_manager(runtime: &Arc<CoreRuntime>) -> Arc<LocalSessionManager<InProcessLink>> {
     Arc::clone(MANAGER.get_or_init(|| {
-        let headers = ClientHeaders::new(openhuman_tinyhumans::product_identity().as_str())
-            .with_core_version(env!("CARGO_PKG_VERSION"));
-        SessionManager::new(Arc::new(InProcessLink(Arc::clone(runtime))), headers)
+        LocalSessionManager::new(Arc::new(InProcessLink(Arc::clone(runtime))))
     }))
 }

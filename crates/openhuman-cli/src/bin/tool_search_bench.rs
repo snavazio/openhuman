@@ -16,7 +16,7 @@
 //!   nothing else is installed.
 //! - `overlap` — `tinyagents_harness::tool::select::rank_tools_by_prompt`,
 //!   the verb-gated token overlap the Composio sub-agent narrows with today.
-//! - `jev` — `tinytools_jev::JevRanker`: BM25 retrieves the top 20, one Jev
+//! - `jev` — (unavailable in this local-only build) `tinytools_jev::JevRanker`: BM25 retrieves the top 20, one Jev
 //!   `Choice` decides. Needs a key: `OPENHUMAN_BACKEND_API_KEY` (through the
 //!   TinyHumans proxy, `BACKEND_URL` to override the base) or
 //!   `TYPESAFE_API_KEY` (TypeSafe directly). Skipped without one.
@@ -34,14 +34,12 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tinytools::{Bm25Ranker, RankCandidate, RankContext, ToolRanker};
 
-/// jev-1.13 list price for input tokens, USD per million; output is free.
-const JEV_USD_PER_MILLION_INPUT: f64 = 0.042;
 /// Toolkits with a recorded catalogue under `tests/fixtures/`.
 const FIXTURE_TOOLKITS: &[&str] = &[
     "gmail",
@@ -287,54 +285,6 @@ fn load_intents(path: &PathBuf) -> Result<Vec<IntentRow>> {
 
 use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
-#[cfg(feature = "jev")]
-fn jev_ranker(
-    retrieval_k: usize,
-    family: bool,
-    embedding: bool,
-) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use openhuman_tinyhumans::jev::TinyJevEvaluator;
-    use tinyjevclient::{Client, ClientConfig};
-    use tinytools_jev::JevRanker;
-    let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
-        let mut client = ClientConfig::tinyhumans_openrouter(key);
-        if let Ok(base) = std::env::var("BACKEND_URL") {
-            if !base.trim().is_empty() {
-                client.base_url = base.trim().trim_end_matches('/').to_string();
-            }
-        }
-        client
-    } else if let Ok(key) = std::env::var("TYPESAFE_API_KEY") {
-        ClientConfig::new(key)
-    } else {
-        // No key in the environment: rank exactly as the product does, with
-        // the process's signed-in TinyHumans session resolved per search.
-        eprintln!("jev: no key in the environment; using the signed-in TinyHumans session");
-        return None;
-    };
-    let client = Client::new(client).ok()?;
-    let evaluator = Arc::new(TinyJevEvaluator::new(client).with_deadline(Duration::from_secs(20)));
-    let ranker = Arc::new(JevRanker::new(
-        evaluator,
-        jev_config(retrieval_k, family, embedding),
-    ));
-    Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
-}
-
-#[cfg(feature = "jev")]
-fn jev_config(retrieval_k: usize, family: bool, embedding: bool) -> tinytools_jev::JevRankerConfig {
-    use tinytools_jev::{JevRankerConfig, JevStrategy};
-    let mut config = JevRankerConfig::new().with_retrieval_k(retrieval_k);
-    if family {
-        config = config.with_strategy(JevStrategy::FamilyThenDecide);
-    }
-    if embedding {
-        config = config.with_retriever(embedding_retriever());
-    }
-    config
-}
-
-#[cfg(not(feature = "jev"))]
 fn jev_ranker(
     _retrieval_k: usize,
     _family: bool,
@@ -433,16 +383,7 @@ async fn main() -> Result<()> {
         match jev_ranker(args.retrieval_k, args.family, args.embedding) {
             Some((ranker, _)) => rankers.push(("jev".into(), ranker)),
             None => {
-                #[cfg(feature = "jev")]
-                {
-                    let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
-                        jev_config(args.retrieval_k, args.family, args.embedding),
-                    )
-                    .with_deadline(Duration::from_secs(20));
-                    rankers.push(("jev".into(), Arc::new(ranker)));
-                }
-                #[cfg(not(feature = "jev"))]
-                eprintln!("jev: skipped (build with the `jev` feature)");
+                eprintln!("jev: not available in this local-only build");
             }
         }
     }
@@ -566,32 +507,6 @@ async fn main() -> Result<()> {
                 .or_default() += 1;
         }
         reports.push(report);
-    }
-
-    #[cfg(feature = "jev")]
-    if let Some(report) = reports.iter_mut().find(|r| r.ranker == "jev") {
-        // Tokens and cost: one detailed pass over the labelled rows so the
-        // number is the provider's own `usage`, not an estimate.
-        if let Some((_, detailed)) = jev_ranker(args.retrieval_k, args.family, args.embedding) {
-            let mut tokens = 0_u64;
-            let mut counted = 0_u64;
-            for row in rows.iter().take(25) {
-                if let Ok(ranking) = detailed
-                    .rank_detailed(&row.intent, &RankContext::empty(), &candidates, args.top_k)
-                    .await
-                {
-                    if let Some(t) = ranking.input_tokens {
-                        tokens += t;
-                        counted += 1;
-                    }
-                }
-            }
-            if counted > 0 {
-                let per_search = tokens as f64 / counted as f64;
-                report.input_tokens = per_search.round() as u64;
-                report.usd = per_search * JEV_USD_PER_MILLION_INPUT / 1_000_000.0;
-            }
-        }
     }
 
     println!("| ranker | rows | top-1 | top-3 | retriever recall@{} | needless (of {}) | errors | p50 ms | p95 ms | tokens/search | USD/search |",

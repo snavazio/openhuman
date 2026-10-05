@@ -1,7 +1,8 @@
+# LOCAL-ONLY FORK: `crates/openhuman-tinyhumans` (hosted-backend transport, cloud
+# login) and `vendor/tinyhumans-sdk` were removed.
 # Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
 # the core library), `crates/openhuman-embed` (library facade),
-# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, above the core), `crates/openhuman-tinyhumans`
-# (SDK-backed backend transport + login/session ownership for hosts),
+# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, above the core),
 # `crates/openhuman-cli` (the `openhuman-core` binary, developer bins and the
 # root integration tests), and `crates/openhuman-tui` (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
 # own Cargo world with its own lockfile and target directory so that root-only
@@ -16,7 +17,6 @@ members = [
     "crates/openhuman-core",
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
-    "crates/openhuman-tinyhumans",
     "crates/openhuman-tui",
 ]
 exclude = [
@@ -37,7 +37,6 @@ repository = "https://github.com/tinyhumansai/openhuman"
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
 openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
-openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 
 # Patches are workspace-root settings; Cargo ignores them in member manifests.
 [patch."https://github.com/tinyhumansai/tinymemory"]

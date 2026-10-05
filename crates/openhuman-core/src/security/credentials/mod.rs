@@ -7,6 +7,7 @@ pub mod credential_ref;
 pub mod http_creds;
 pub mod identity;
 pub mod jwt;
+pub mod local_session;
 pub mod openai_oauth;
 pub mod ops;
 pub mod profiles;

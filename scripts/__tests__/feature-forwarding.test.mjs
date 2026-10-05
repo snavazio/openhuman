@@ -748,24 +748,23 @@ e2e-test-support = ["openhuman-core/e2e-test-support"]
   assert.ok(result.ok, formatChainReport(result));
 });
 
-test('the checked-in embed, tinyhumans and cli manifests forward the whole chain', () => {
+test('the checked-in embed and cli manifests forward the whole chain', () => {
   const read = name => readFileSync(resolve(REPO_ROOT, `crates/${name}/Cargo.toml`), 'utf8');
   const core = parseCoreFeatureNames(
     readFileSync(resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml'), 'utf8')
   );
   const embed = parseFeatureTable(read('openhuman-embed'));
-  const tinyhumans = parseFeatureTable(read('openhuman-tinyhumans'));
   const cli = parseFeatureTable(read('openhuman-cli'));
   // Guards the guard: empty tables would make every assertion below vacuous.
   assert.ok(core.length > 0, 'expected to parse at least one core gate');
   for (const [name, table] of [
     ['openhuman-embed', embed],
-    ['openhuman-tinyhumans', tinyhumans],
     ['openhuman-cli', cli],
   ]) {
     assert.ok(table.size > 0, `expected to parse features from ${name}`);
   }
-  const gatesOf = table => [...table.keys()].filter(n => n !== 'default');
+  // LOCAL-ONLY FORK: the tinyhumans hop is gone; embed and cli each take the
+  // core's gates directly.
   const links = [
     {
       crate: 'openhuman-embed',
@@ -773,17 +772,9 @@ test('the checked-in embed, tinyhumans and cli manifests forward the whole chain
       sources: [{ crate: 'openhuman-core', gates: core, required: true }],
     },
     {
-      crate: 'openhuman-tinyhumans',
-      features: tinyhumans,
-      sources: [{ crate: 'openhuman-embed', gates: gatesOf(embed), required: true }],
-    },
-    {
       crate: 'openhuman-cli',
       features: cli,
-      sources: [
-        { crate: 'openhuman-core', gates: core, required: true },
-        { crate: 'openhuman-tinyhumans', gates: gatesOf(tinyhumans), required: false },
-      ],
+      sources: [{ crate: 'openhuman-core', gates: core, required: true }],
     },
   ];
   for (const link of links) {
@@ -837,7 +828,6 @@ test('the checker reports the chain and fails when a layer drops a gate', () => 
         resolve(REPO_ROOT, 'crates/openhuman-app/Cargo.toml'),
         resolve(REPO_ROOT, 'scripts/ci/product-features.txt'),
         embedPath,
-        resolve(REPO_ROOT, 'crates/openhuman-tinyhumans/Cargo.toml'),
         resolve(REPO_ROOT, 'crates/openhuman-cli/Cargo.toml'),
       ],
       { encoding: 'utf8' }

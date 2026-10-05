@@ -4065,7 +4065,6 @@ dependencies = [
  "log",
  "openhuman",
  "openhuman-rpc",
- "openhuman-tinyhumans",
  "parking_lot",
  "reqwest",
  "rusqlite",
@@ -4083,13 +4082,11 @@ dependencies = [
  "tinyinference-llm",
  "tinyinference-local",
  "tinyinference-voice",
- "tinyjevclient",
  "tinymcp",
  "tinymcp-bus",
  "tinymemory-api",
  "tinytools",
  "tinytools-agent",
- "tinytools-jev",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
@@ -4155,36 +4152,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "openhuman-tinyhumans"
-version = "0.64.10"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "async-trait",
- "axum",
- "base64 0.22.1",
- "chrono",
- "log",
- "openhuman",
- "openhuman-embed",
- "reqwest",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "tinychannels-bus",
- "tinyhumans-sdk",
- "tinyjevclient",
- "tinytools",
- "tinytools-jev",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "wiremock",
-]
-
-[[package]]
 name = "openhuman-tui"
 version = "0.64.10"
 dependencies = [
@@ -4197,7 +4164,6 @@ dependencies = [
  "log",
  "openhuman",
  "openhuman-rpc",
- "openhuman-tinyhumans",
  "ratatui",
  "serde_json",
  "tempfile",
@@ -6634,21 +6600,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinyhumans-sdk"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "futures",
- "percent-encoding",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "tinyinference-core"
 version = "0.3.0"
 dependencies = [
@@ -6769,19 +6720,6 @@ dependencies = [
  "tinyinference-local",
  "tokio",
  "uuid",
-]
-
-[[package]]
-name = "tinyjevclient"
-version = "0.2.1"
-source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=84b3983c7e1e14f7515658ceafabb6c4e7967c94#84b3983c7e1e14f7515658ceafabb6c4e7967c94"
-dependencies = [
- "httpdate",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
 ]
 
 [[package]]
@@ -7081,14 +7019,6 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "tinytools",
-]
-
-[[package]]
-name = "tinytools-jev"
-version = "0.5.0"
-dependencies = [
- "async-trait",
  "tinytools",
 ]
 

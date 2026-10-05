@@ -5,7 +5,7 @@
 //! loopback.
 
 use async_trait::async_trait;
-use openhuman_tinyhumans::CoreLink;
+use openhuman_core::security::credentials::local_session::CoreLink;
 use serde_json::Value;
 
 use crate::core_process::CoreProcessHandle;

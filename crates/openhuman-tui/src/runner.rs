@@ -166,11 +166,7 @@ async fn async_main(
     prefer_existing: bool,
     options: super::app::LaunchOptions,
 ) -> anyhow::Result<()> {
-    // The core reaches the hosted backend (login, billing, integrations) only
-    // through the transport `openhuman-tinyhumans` installs; bind it to the
-    // runtime explicitly rather than relying on the process global.
-    let backend_transport =
-        openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())?;
+    // LOCAL-ONLY FORK: no hosted-backend transport is installed.
 
     // In-process core: full domains (channel.web_chat needs DomainGroup::Channels,
     // so harness() is not enough), no RPC transport, no background services.
@@ -178,7 +174,6 @@ async fn async_main(
         CoreBuilder::new(HostKind::detect_standalone())
             .domains(DomainSet::full())
             .services(ServiceSet::none())
-            .backend_transport(backend_transport)
             .build()
             .await?,
     );

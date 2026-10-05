@@ -35,15 +35,9 @@ serde_json = "1"
 
 [dependencies]
 openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features = ["http-client", "server"] }
-# The desktop session owner (login-token exchange, /auth/me, current-user
-# cache) and the SDK-backed backend transport the core needs installed at
-# boot. `default-features = false`: the shell controls every product gate
-# through the `openhuman_core` line above, and this crate must not re-enable
-# defaults behind `check-feature-forwarding`'s back.
-# `jev` is that crate's own gate (not a core gate, so not in
-# `scripts/ci/product-features.txt`): the Jev-backed `tool_search` ranker the
-# product ships.
-openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false, features = ["jev"] }
+# LOCAL-ONLY FORK: openhuman-tinyhumans (hosted-backend transport, cloud login,
+# Jev tool ranker) removed. Sessions use openhuman_core's LocalSessionManager;
+# tool_search ranks with local BM25.
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
 tauri = { version = "2.11", default-features = false, features = [
