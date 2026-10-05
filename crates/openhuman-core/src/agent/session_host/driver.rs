@@ -180,7 +180,12 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .iter()
             .map(|spec| spec.name.clone())
             .collect();
-        ensure_snapshot_tools_are_executable(&visible_tool_names, &tools, &synthesized_tools)?;
+        let unavailable_tools = ensure_snapshot_tools_are_executable(
+            request.tools.specs(),
+            &request.run_context.data.recorded_tool_names,
+            &tools,
+            &synthesized_tools,
+        )?;
         // The harness must speak the dialect this session's prompt was
         // composed for: a text dialect strips schemas off the wire and needs
         // the positional registry to recover P-Format / code-style calls.
@@ -196,6 +201,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             messages,
             tools,
             synthesized_tools,
+            unavailable_tools,
             visible_tool_names,
             max_iterations: self.max_iterations,
             on_progress: run_context.progress.clone(),
@@ -455,22 +461,30 @@ fn driver_failure(error: impl std::fmt::Display) -> DriverFailure {
 /// Sources may contain additional durable tools because the runtime snapshot is
 /// the final provider-visible allowlist, but every declared name must resolve
 /// here before the graph begins.
+///
+/// The one exception is a declaration this thread *recorded* earlier and the
+/// runtime retained on resume, whose tool this build no longer has (removed or
+/// compiled out since). It keeps its declaration, so the cached prompt prefix
+/// is unchanged, and is served by a refusing stub; the returned set holds those
+/// stubs. A declaration that was never recorded still fails closed.
 fn ensure_snapshot_tools_are_executable(
-    visible_tool_names: &HashSet<String>,
+    snapshot: &[tinytools::ToolSpec],
+    recorded_tool_names: &HashSet<String>,
     tools: &Arc<Vec<Box<dyn tinytools::Tool>>>,
     synthesized_tools: &Arc<Vec<Box<dyn tinytools::Tool>>>,
-) -> Result<(), DriverFailure> {
+) -> Result<Arc<Vec<Box<dyn tinytools::Tool>>>, DriverFailure> {
     let executable_tool_names = tools
         .iter()
         .chain(synthesized_tools.iter())
         .map(|tool| tool.name().to_string())
         .collect::<HashSet<_>>();
-    let missing = visible_tool_names
-        .difference(&executable_tool_names)
-        .cloned()
-        .collect::<Vec<_>>();
+    let (stubs, missing) = super::recorded_tools::stub_unavailable_recorded_tools(
+        snapshot,
+        recorded_tool_names,
+        &executable_tool_names,
+    );
     if missing.is_empty() {
-        Ok(())
+        Ok(Arc::new(stubs))
     } else {
         Err(driver_failure(format!(
             "session tool snapshot declares non-executable tools: {}",

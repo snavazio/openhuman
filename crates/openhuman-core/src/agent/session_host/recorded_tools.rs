@@ -159,6 +159,97 @@ pub(super) fn rehydrate_search_tools(
     rebuilt
 }
 
+/// Stand-in executor for a recorded declaration this build cannot run at all
+/// (its tool was removed, or its feature compiled out, after the thread
+/// recorded it).
+///
+/// The tinyagents session retains every recorded declaration on resume
+/// (`retain_recorded_tools`) so the cached prompt prefix stays byte-identical,
+/// and leaves the host to "execute (or refuse)" each one. This is the refusal:
+/// the declaration stays on the wire unchanged, and a call answers with a
+/// tool error the model can read instead of failing the whole turn. It never
+/// executes anything, so it grants no authority.
+pub(super) struct UnavailableRecordedTool {
+    spec: ToolSpec,
+}
+
+impl UnavailableRecordedTool {
+    pub(super) fn new(spec: ToolSpec) -> Self {
+        Self { spec }
+    }
+
+    fn message(&self) -> String {
+        format!(
+            "Tool `{}` is not available in this build. It was offered earlier in this conversation but has since been removed; continue without it.",
+            self.spec.name
+        )
+    }
+}
+
+#[async_trait::async_trait]
+impl Tool for UnavailableRecordedTool {
+    fn name(&self) -> &str {
+        &self.spec.name
+    }
+
+    fn description(&self) -> &str {
+        &self.spec.description
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        self.spec.parameters.clone()
+    }
+
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::None
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        log::warn!(
+            "[session] refused call to recorded tool unavailable in this build tool={}",
+            self.spec.name
+        );
+        Ok(tinytools::ToolResult::error(self.message()))
+    }
+}
+
+/// Refusing executors for every declaration in `snapshot` that was recorded
+/// by this thread (`recorded`) but has no executor in `executable`.
+/// Declarations that were never recorded are not stubbed: a live surface
+/// declaring a tool it cannot execute is a host bug and must still fail.
+/// Returns the stubs and the names still missing after stubbing.
+pub(super) fn stub_unavailable_recorded_tools(
+    snapshot: &[ToolSpec],
+    recorded: &HashSet<String>,
+    executable: &HashSet<String>,
+) -> (Vec<Box<dyn Tool>>, Vec<String>) {
+    let mut seen = HashSet::new();
+    let mut stubs: Vec<Box<dyn Tool>> = Vec::new();
+    let mut missing = Vec::new();
+    for spec in snapshot {
+        if executable.contains(&spec.name) || !seen.insert(spec.name.clone()) {
+            continue;
+        }
+        if recorded.contains(&spec.name) {
+            stubs.push(Box::new(UnavailableRecordedTool::new(spec.clone())));
+        } else {
+            missing.push(spec.name.clone());
+        }
+    }
+    if !stubs.is_empty() {
+        let names = stubs
+            .iter()
+            .map(|tool| tool.name())
+            .collect::<Vec<_>>()
+            .join(", ");
+        log::warn!(
+            "[session] {} recorded tool(s) are unavailable in this build; declared with refusing stubs: {names}",
+            stubs.len()
+        );
+    }
+    (stubs, missing)
+}
+
 #[cfg(test)]
 #[path = "recorded_tools_tests.rs"]
 mod tests;

@@ -163,3 +163,50 @@ fn missing_search_tools_are_rebuilt_once_with_their_recorded_declaration() {
     assert_eq!(rebuilt[0].name(), "web_answer_tool");
     assert_eq!(rebuilt[0].description(), "web_answer_tool description");
 }
+
+#[test]
+fn stubs_only_recorded_declarations_without_an_executor() {
+    let snapshot = vec![
+        spec("wallet_status"),
+        spec("web_fetch"),
+        spec("never_recorded"),
+        spec("wallet_status"),
+    ];
+    let recorded = HashSet::from(["wallet_status".to_string(), "web_fetch".to_string()]);
+    let executable = HashSet::from(["web_fetch".to_string()]);
+    let (stubs, missing) = stub_unavailable_recorded_tools(&snapshot, &recorded, &executable);
+    let names = stubs.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec!["wallet_status"],
+        "live tools win; duplicates collapse"
+    );
+    assert_eq!(missing, vec!["never_recorded".to_string()]);
+}
+
+#[test]
+fn stub_keeps_recorded_declaration_verbatim() {
+    let recorded = spec("web3_swap_execute");
+    let stub = UnavailableRecordedTool::new(recorded.clone());
+    let declared = stub.spec();
+    assert_eq!(declared.name, recorded.name);
+    assert_eq!(declared.description, recorded.description);
+    assert_eq!(
+        declared.parameters, recorded.parameters,
+        "prefix cache needs the same declaration"
+    );
+    assert_eq!(stub.permission_level(), tinytools::PermissionLevel::None);
+}
+
+#[tokio::test]
+async fn stub_call_returns_a_readable_tool_error() {
+    let stub = UnavailableRecordedTool::new(spec("wallet_status"));
+    let result = stub
+        .execute(serde_json::json!({}))
+        .await
+        .expect("a refusal is a tool result, not a failed turn");
+    assert!(result.is_error);
+    let text = serde_json::to_string(&result.content).expect("content serializes");
+    assert!(text.contains("wallet_status"), "{text}");
+    assert!(text.contains("not available in this build"), "{text}");
+}

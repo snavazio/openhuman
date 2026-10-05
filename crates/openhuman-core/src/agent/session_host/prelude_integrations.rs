@@ -17,23 +17,20 @@ impl OpenHumanTurnPrelude {
         let Some(recorded) = recorded else {
             return;
         };
-        let actions = super::super::recorded_tools::recorded_integration_actions(recorded.specs());
         log::debug!(
-            "[session] adopting {} recorded integration action declaration(s) agent={}",
-            actions.len(),
+            "[session] adopting {} recorded tool declaration(s) ({} integration action(s)) agent={}",
+            recorded.specs().len(),
+            super::super::recorded_tools::recorded_integration_actions(recorded.specs()).len(),
             self.agent_definition_id
         );
-        // Search role tools ride in the same list; each rehydration pass
-        // keeps only the names it owns.
-        let mut actions = actions;
-        actions.extend(super::super::recorded_tools::recorded_search_tools(
-            recorded.specs(),
-        ));
+        // Integration actions, search role tools and stubs for tools this
+        // build no longer has all derive from this one list; each pass keeps
+        // only the names it owns.
         let mut mutable = self
             .mutable
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        mutable.recorded_integration_actions = actions;
+        mutable.recorded_tools = recorded.specs().to_vec();
         // MCP tools are rebuilt from the tool cache every turn; all a resumed
         // thread needs remembered is which names it was sent, so a tool it
         // knew under the pre-readable hashed name keeps resolving.
@@ -69,7 +66,7 @@ impl OpenHumanTurnPrelude {
             .mutable
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .recorded_integration_actions
+            .recorded_tools
             .clone();
         let mut rebuilt = Vec::new();
         if definition.subagents.iter().any(|entry| {
@@ -102,6 +99,22 @@ impl OpenHumanTurnPrelude {
         #[cfg(not(feature = "modules"))]
         let _ = base;
         rebuilt
+    }
+
+    /// Names of every declaration the resumed thread recorded; see
+    /// `OpenHumanRunContext::recorded_tool_names`.
+    pub(super) fn recorded_names(&self) -> Arc<std::collections::HashSet<String>> {
+        let mutable = self
+            .mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Arc::new(
+            mutable
+                .recorded_tools
+                .iter()
+                .map(|spec| spec.name.clone())
+                .collect(),
+        )
     }
 
     pub(super) async fn refresh_turn_boundary(&self, cold: bool) {

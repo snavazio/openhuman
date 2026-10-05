@@ -161,11 +161,9 @@ struct OpenHumanTurnPreludeMutable {
     connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     connected_integrations_initialized: bool,
     connected_integrations_authoritative: bool,
-    /// Integration action declarations this thread was already sent,
-    /// restored by the tinyagents session on resume. Rebuilt into deferred
-    /// executors whenever the live integrations list does not supply them
-    /// (see `recorded_tools`).
-    recorded_integration_actions: Vec<tinytools::ToolSpec>,
+    /// Every declaration the resumed thread was sent (`recorded_tools`
+    /// rebuilds or stubs the ones the live surface does not supply).
+    recorded_tools: Vec<tinytools::ToolSpec>,
     workflows: Vec<crate::skills::Workflow>,
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
@@ -1541,7 +1539,7 @@ impl OpenHumanSessionHost {
                     // Builder-provided integrations have not been verified by
                     // this session's current authorization refresh.
                     connected_integrations_authoritative: false,
-                    recorded_integration_actions: Vec::new(),
+                    recorded_tools: Vec::new(),
                     workflows: self.workflows.clone(),
                     composio_events: None,
                     skill_events: None,
@@ -1665,6 +1663,7 @@ impl OpenHumanSessionHost {
                         if !overrides.suppress_tools {
                             options.run_context.data.deferred_tool_names =
                                 Arc::new(prelude.current_deferred_tool_names());
+                            options.run_context.data.recorded_tool_names = prelude.recorded_names();
                         }
                         options.run_context.data.current_synthesized_tools =
                             Some(current_synthesized_tools);

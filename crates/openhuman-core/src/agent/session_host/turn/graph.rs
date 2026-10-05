@@ -62,6 +62,10 @@ pub(crate) struct ChatTurnGraph {
     /// mid-session Composio connect reach the model as a *callable* tool and a
     /// revoke withdraw one, without owning `tools`.
     pub synthesized_tools: Arc<Vec<Box<dyn Tool>>>,
+    /// Refusing stubs for declarations this thread recorded whose tools this
+    /// build no longer has (see `recorded_tools::UnavailableRecordedTool`).
+    /// Disjoint from the two sets above; empty on almost every turn.
+    pub unavailable_tools: Arc<Vec<Box<dyn Tool>>>,
     /// Callable-tool whitelist captured from the runtime request snapshot.
     /// An empty set is deny-all, never an implicit expansion to the driver's
     /// construction-time registry.
@@ -159,7 +163,11 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             // disjoint by construction (`builder::drop_synthesized_name_collisions`),
             // so the order never decides a collision; it only keeps every
             // surface enumerating the tools in one sequence.
-            vec![graph.tools, graph.synthesized_tools],
+            vec![
+                graph.tools,
+                graph.synthesized_tools,
+                graph.unavailable_tools,
+            ],
             visible_tool_names,
             graph.max_iterations,
             graph.context_window,

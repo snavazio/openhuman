@@ -152,14 +152,58 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
     assert_eq!(failure.duration_ms, 17);
 }
 
+fn snapshot_spec(name: &str) -> tinytools::ToolSpec {
+    tinytools::ToolSpec {
+        name: name.into(),
+        description: format!("{name} description"),
+        parameters: serde_json::json!({"type": "object"}),
+    }
+}
+
 #[test]
 fn tool_snapshot_with_no_executable_source_fails_closed_before_graph() {
-    let visible = HashSet::from(["revoked_tool".to_string()]);
-    let error = ensure_snapshot_tools_are_executable(
-        &visible,
+    let Err(error) = ensure_snapshot_tools_are_executable(
+        &[snapshot_spec("revoked_tool")],
+        &HashSet::new(),
+        &Arc::new(Vec::new()),
+        &Arc::new(Vec::new()),
+    ) else {
+        panic!("a declared tool must have a request-scoped executable source");
+    };
+    assert!(error.error.to_string().contains("revoked_tool"));
+}
+
+#[test]
+fn recorded_tool_removed_from_build_is_stubbed_not_fatal() {
+    // A thread created before web3 was compiled out still declares
+    // `wallet_status`; resume must keep it declared and refuse calls.
+    let recorded = HashSet::from(["wallet_status".to_string()]);
+    let stubs = ensure_snapshot_tools_are_executable(
+        &[snapshot_spec("wallet_status")],
+        &recorded,
         &Arc::new(Vec::new()),
         &Arc::new(Vec::new()),
     )
-    .expect_err("a declared tool must have a request-scoped executable source");
-    assert!(error.error.to_string().contains("revoked_tool"));
+    .expect("a recorded tool missing from this build must not fail the turn");
+    let names = stubs.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(names, vec!["wallet_status"]);
+}
+
+#[test]
+fn unrecorded_missing_tool_still_fails_beside_recorded_stub() {
+    let recorded = HashSet::from(["wallet_status".to_string()]);
+    let Err(error) = ensure_snapshot_tools_are_executable(
+        &[
+            snapshot_spec("wallet_status"),
+            snapshot_spec("host_bug_tool"),
+        ],
+        &recorded,
+        &Arc::new(Vec::new()),
+        &Arc::new(Vec::new()),
+    ) else {
+        panic!("only recorded declarations may be stubbed");
+    };
+    let message = error.error.to_string();
+    assert!(message.contains("host_bug_tool"));
+    assert!(!message.contains("wallet_status"));
 }
