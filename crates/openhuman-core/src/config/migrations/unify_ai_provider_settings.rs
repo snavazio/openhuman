@@ -42,9 +42,7 @@
 //! - Migrates `inference_url` into a `Custom` cloud provider entry when the
 //!   URL doesn't look like the OpenHuman backend.
 
-use crate::config::schema::cloud_providers::{
-    generate_provider_id, AuthStyle, CloudProviderCreds, CloudProviderType,
-};
+use crate::config::schema::cloud_providers::{generate_provider_id, AuthStyle, CloudProviderCreds};
 use crate::config::Config;
 
 /// Counters returned by [`run`] for diagnostics. Logged at INFO once per
@@ -88,28 +86,11 @@ pub(super) fn seed_cloud_providers(config: &mut Config, stats: &mut MigrationSta
         return;
     }
 
-    // Always seed the OpenHuman entry — even if api_url is None, the factory
-    // resolves a sensible default at runtime.
-    let oh_endpoint = config
-        .api_url
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| CloudProviderType::Openhuman.default_endpoint().to_string());
-    let oh_default_model = config
-        .default_model
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| crate::config::MODEL_MANAGED_DEFAULT.to_string());
-    config.cloud_providers.push(CloudProviderCreds {
-        id: generate_provider_id("openhuman"),
-        slug: "openhuman".to_string(),
-        label: "OpenHuman".to_string(),
-        endpoint: oh_endpoint,
-        auth_style: AuthStyle::OpenhumanJwt,
-        default_model: Some(oh_default_model),
-        ..Default::default()
-    });
-    stats.cloud_providers_seeded += 1;
+    // LOCAL-ONLY FORK: the managed OpenHuman backend (api.openhuman.ai) is not
+    // seeded. This build has no cloud account, so the entry could only ever
+    // route a workload to an unreachable host. Local runtimes and any
+    // user-configured OpenAI-compatible endpoints are the only providers.
+    log::debug!("[migrations][unify-ai] local-only build: not seeding the managed openhuman entry");
 
     // If there's a legacy `inference_url` pointing at a non-OpenHuman
     // endpoint, surface it as a Custom entry so the user keeps their

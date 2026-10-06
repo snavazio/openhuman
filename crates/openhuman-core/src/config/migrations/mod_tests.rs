@@ -701,10 +701,10 @@ async fn a_v10_workspace_with_no_cloud_providers_is_reseeded() {
 
     run_pending(&mut config).await;
 
+    // LOCAL-ONLY FORK: the re-seed step runs but seeds no managed entry.
     assert!(
-        config.cloud_providers.iter().any(|e| e.slug == "openhuman"),
-        "a v10 workspace with an empty provider list must gain the managed entry, \
-         otherwise the model picker can never load the managed catalog"
+        !config.cloud_providers.iter().any(|e| e.slug == "openhuman"),
+        "a local-only build must never seed the managed openhuman entry"
     );
     assert_eq!(
         config.schema_version, CURRENT_SCHEMA_VERSION,

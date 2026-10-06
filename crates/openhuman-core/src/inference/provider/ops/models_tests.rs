@@ -68,11 +68,9 @@ fn credentials_are_withheld_from_remote_plaintext_and_junk_urls() {
 /// "no cloud provider with id or slug 'openhuman' found".
 #[test]
 fn managed_entry_is_synthesized_when_the_config_row_is_missing() {
-    use crate::config::schema::cloud_providers::AuthStyle;
-    let entry = synthesize_managed_entry("openhuman").expect("managed entry");
-    assert_eq!(entry.slug, "openhuman");
-    assert_eq!(entry.auth_style, AuthStyle::OpenhumanJwt);
-    assert!(!entry.endpoint.is_empty());
+    // LOCAL-ONLY FORK: there is no managed backend, so nothing is synthesized
+    // and callers report the provider as unknown.
+    assert!(synthesize_managed_entry("openhuman").is_none());
 }
 
 /// Only the managed slug synthesizes: anything else must keep reporting an

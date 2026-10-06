@@ -567,39 +567,21 @@ fn resolve_action_dir_rejects_empty_override() {
 /// provider."
 #[tokio::test]
 async fn a_brand_new_workspace_is_born_with_the_managed_provider() {
-    use crate::config::schema::cloud_providers::AuthStyle;
-
+    // LOCAL-ONLY FORK: a fresh workspace carries no managed (api.openhuman.ai)
+    // provider, in memory or on disk.
     let tmp = tempfile::tempdir().unwrap();
     let config = load_or_init_for_workspace(tmp.path()).await;
 
-    let managed = config
-        .cloud_providers
-        .iter()
-        .find(|p| p.slug == "openhuman")
-        .unwrap_or_else(|| {
-            panic!(
-                "a fresh workspace must carry the managed provider, got {:?}",
-                config
-                    .cloud_providers
-                    .iter()
-                    .map(|p| p.slug.as_str())
-                    .collect::<Vec<_>>()
-            )
-        });
-    assert_eq!(managed.auth_style, AuthStyle::OpenhumanJwt);
     assert!(
-        !managed.endpoint.trim().is_empty(),
-        "the seeded entry needs a resolvable endpoint"
+        !config.cloud_providers.iter().any(|p| p.slug == "openhuman"),
+        "a fresh local-only workspace must not carry the managed provider"
     );
-
-    // Seeded before the first `save`, so it is on disk from the very first
-    // write — not merely in memory awaiting some later persist.
     let on_disk = tokio::fs::read_to_string(&config.config_path)
         .await
         .unwrap();
     assert!(
-        on_disk.contains("slug = \"openhuman\""),
-        "the seeded entry must be persisted by the initial save, got:\n{on_disk}"
+        !on_disk.contains("slug = \"openhuman\""),
+        "the managed entry must not be persisted, got:\n{on_disk}"
     );
 }
 
@@ -617,7 +599,8 @@ async fn reopening_a_seeded_workspace_does_not_duplicate_the_provider() {
         .iter()
         .filter(|p| p.slug == "openhuman")
         .count();
-    assert_eq!(seeded, 1, "first load seeds exactly one managed entry");
+    // LOCAL-ONLY FORK: nothing is seeded, and re-opening must not add it.
+    assert_eq!(seeded, 0, "first load seeds no managed entry");
 
     let second = load_or_init_for_workspace(tmp.path()).await;
     assert_eq!(
@@ -626,7 +609,7 @@ async fn reopening_a_seeded_workspace_does_not_duplicate_the_provider() {
             .iter()
             .filter(|p| p.slug == "openhuman")
             .count(),
-        1,
-        "re-opening the workspace must not seed a second managed entry"
+        0,
+        "re-opening the workspace must not seed a managed entry"
     );
 }

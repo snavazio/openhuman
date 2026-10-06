@@ -22,24 +22,23 @@ fn make_legacy_config_local_on() -> Config {
     c
 }
 
+// LOCAL-ONLY FORK: the managed OpenHuman entry is never seeded.
 #[test]
-fn empty_config_seeds_openhuman_entry() {
+fn empty_config_seeds_no_managed_entry() {
     let mut c = Config::default();
     let stats = run(&mut c).expect("migration must succeed");
 
-    assert_eq!(stats.cloud_providers_seeded, 1);
-    assert_eq!(c.cloud_providers.len(), 1);
-    assert_eq!(c.cloud_providers[0].slug, "openhuman");
-    assert!(c.cloud_providers[0].id.starts_with("p_openhuman_"));
+    assert_eq!(stats.cloud_providers_seeded, 0);
+    assert!(c.cloud_providers.is_empty());
 }
 
 #[test]
-fn primary_cloud_defaults_to_openhuman_id() {
+fn primary_cloud_stays_unset_without_a_cloud_entry() {
     let mut c = Config::default();
     let stats = run(&mut c).expect("migration must succeed");
 
-    assert!(stats.primary_cloud_set);
-    assert_eq!(c.primary_cloud, Some(c.cloud_providers[0].id.clone()));
+    assert!(!stats.primary_cloud_set);
+    assert_eq!(c.primary_cloud, None);
 }
 
 #[test]
@@ -54,7 +53,8 @@ fn legacy_inference_url_becomes_custom_entry() {
 
     let stats = run(&mut c).expect("migration must succeed");
 
-    assert_eq!(stats.cloud_providers_seeded, 2);
+    // LOCAL-ONLY FORK: only the legacy custom entry; no managed entry.
+    assert_eq!(stats.cloud_providers_seeded, 1);
     let custom = c
         .cloud_providers
         .iter()
@@ -74,9 +74,8 @@ fn openhuman_inference_url_does_not_seed_custom() {
     let mut c = Config::default();
     c.inference_url = Some("https://api.openhuman.ai/v1".into());
     let _ = run(&mut c).expect("migration must succeed");
-    // Only the openhuman entry should be seeded — no Custom entry.
-    assert_eq!(c.cloud_providers.len(), 1);
-    assert_eq!(c.cloud_providers[0].slug, "openhuman");
+    // LOCAL-ONLY FORK: neither a managed nor a Custom entry is seeded.
+    assert!(c.cloud_providers.is_empty());
 }
 
 #[test]
@@ -155,8 +154,9 @@ fn idempotent_second_run_is_noop() {
     assert_eq!(c.primary_cloud, primary_after_first);
     assert_eq!(c.learning_provider, learning_after_first);
 
-    // Sanity: stats from the first run say we did do work.
-    assert!(first.cloud_providers_seeded >= 1);
+    // Sanity: stats from the first run say we did do work. LOCAL-ONLY FORK:
+    // no managed entry is seeded, so only workload fields are filled.
+    assert_eq!(first.cloud_providers_seeded, 0);
     assert!(first.workload_fields_filled >= 1);
 }
 

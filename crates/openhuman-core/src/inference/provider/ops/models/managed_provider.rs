@@ -21,20 +21,11 @@
 pub(super) fn synthesize_managed_entry(
     slug: &str,
 ) -> Option<crate::config::schema::cloud_providers::CloudProviderCreds> {
-    use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-    if slug != "openhuman" {
-        return None;
-    }
-    Some(CloudProviderCreds {
-        id: "openhuman".to_string(),
-        slug: "openhuman".to_string(),
-        label: "OpenHuman".to_string(),
-        endpoint: crate::config::schema::cloud_providers::CloudProviderType::Openhuman
-            .default_endpoint()
-            .to_string(),
-        auth_style: AuthStyle::OpenhumanJwt,
-        ..Default::default()
-    })
+    // LOCAL-ONLY FORK: there is no managed backend to synthesize. Callers keep
+    // reporting "no cloud provider with id or slug 'openhuman' found" instead
+    // of building a request to api.openhuman.ai.
+    log::debug!("[models] local-only build: no managed entry synthesized for slug={slug}");
+    None
 }
 
 /// Whether a bearer credential may be attached to this URL.
