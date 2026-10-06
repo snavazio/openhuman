@@ -279,6 +279,35 @@ fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     assert!(profile.tool_calling);
 }
 
+fn cloud_slug_image_in(registry_vision: Option<bool>) -> bool {
+    let mut config = Config::default();
+    config.cloud_providers.push(deepseek_entry("p_ds"));
+    config.chat_provider = Some("deepseek:deepseek-chat".to_string());
+    if let Some(vision) = registry_vision {
+        config
+            .model_registry
+            .push(crate::config::schema::ModelRegistryEntry {
+                id: "deepseek-chat".to_string(),
+                provider: "deepseek".to_string(),
+                vision,
+                ..Default::default()
+            });
+    }
+    let (model, _) =
+        create_chat_model_with_model_id("chat", &config, 0.7).expect("cloud slug model must build");
+    model.profile().expect("profile").modalities.image_in
+}
+
+#[test]
+fn cloud_slug_model_takes_vision_from_the_model_registry() {
+    // A text-only self-hosted model (registry `vision = false`) must not
+    // advertise image input, or the session gate sends it image bytes.
+    let _guard = crate::inference::inference_test_guard();
+    assert!(!cloud_slug_image_in(Some(false)));
+    assert!(!cloud_slug_image_in(None));
+    assert!(cloud_slug_image_in(Some(true)));
+}
+
 #[test]
 fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     let _guard = crate::inference::inference_test_guard();

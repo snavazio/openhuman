@@ -411,7 +411,14 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         merge_system_into_user: false,
         extra_headers: extra_headers.as_slice(),
         native_tool_calling: Some(native_tool_calling),
-        vision: None,
+        // The OpenAI wire preset advertises image input by default. Use the
+        // same predicate as the session and sub-agent image gates (the
+        // registry's `vision` flag), so a text-only self-hosted model is never
+        // handed image bytes it cannot accept.
+        vision: Some(crate::inference::model_context::model_supports_vision(
+            &effective_model,
+            config,
+        )),
         default_provider_options: openrouter_default_provider_options(&endpoint),
         responses_api_primary,
         responses_omit_max_output_tokens,
