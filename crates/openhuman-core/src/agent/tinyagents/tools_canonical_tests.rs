@@ -266,3 +266,30 @@ fn session_deferred_adapter_reports_deferred_but_never_surfaces_a_hidden_tool() 
     assert_eq!(forced("hidden"), tinytools::ToolExposure::Hidden);
     assert_eq!(forced("deferred"), tinytools::ToolExposure::Deferred);
 }
+
+/// A pack-withheld hand-off (`analyze_image`, a `Hidden` synthesised delegate)
+/// that the session defers becomes searchable: otherwise neither the wire nor
+/// `tool_search` could reach it. A plain `Hidden` tool still stays hidden.
+#[test]
+fn session_deferred_hand_off_is_searchable_but_plain_hidden_is_not() {
+    let set: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
+        Box::new(
+            crate::agent::orchestration::tools::ArchetypeDelegationTool {
+                tool_name: "analyze_image".to_string(),
+                agent_id: crate::agent::orchestration::tools::DelegationTarget(
+                    "vision_agent".to_string(),
+                ),
+                tool_description: "Describe an attached image".to_string(),
+            },
+        ),
+        Box::new(ExposedTool("hidden", tinytools::ToolExposure::Hidden)),
+    ]);
+    let forced = |name: &str| {
+        CanonicalSharedToolAdapter::for_name(vec![set.clone()], name)
+            .expect("registered")
+            .deferred()
+            .exposure()
+    };
+    assert_eq!(forced("analyze_image"), tinytools::ToolExposure::Deferred);
+    assert_eq!(forced("hidden"), tinytools::ToolExposure::Hidden);
+}

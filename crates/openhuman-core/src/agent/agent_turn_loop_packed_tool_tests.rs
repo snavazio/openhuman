@@ -115,8 +115,10 @@ impl Tool for WritePackedTool {
 }
 
 // #6276 review: routing must never be a way around the session's gate. A packed
-// tool this channel may not run is not rewritten at all: it keeps the crate's
-// unknown-tool answer and never executes.
+// tool this channel may not run is not rewritten into `use_skill` and never
+// executes. Since withheld pack tools are searchable (`meta::deferred_set`), the
+// bare call reaches the session gate, which refuses it with its policy reason;
+// before that the crate answered "unknown tool". Either is a refusal.
 #[tokio::test]
 async fn turn_does_not_route_a_bare_call_the_session_would_refuse() {
     let provider = Arc::new(ScriptedProvider::new(vec![
@@ -147,18 +149,27 @@ async fn turn_does_not_route_a_bare_call_the_session_would_refuse() {
         !*ran.lock().unwrap(),
         "a packed tool the session blocks must not run through a bare call"
     );
+    let refused = |content: &str| {
+        content.contains("unknown tool `skill_registry_install`")
+            || content.contains("'skill_registry_install' is blocked by the session tool policy")
+    };
     let unrouted = agent.history().iter().any(|msg| match msg {
-        TranscriptEntry::ToolResults(results) => results
-            .iter()
-            .any(|r| r.content.contains("unknown tool `skill_registry_install`")),
+        TranscriptEntry::ToolResults(results) => results.iter().any(|r| refused(&r.content)),
         TranscriptEntry::Chat(message) => {
-            message.role.as_str() == "tool"
-                && message
-                    .content
-                    .contains("unknown tool `skill_registry_install`")
+            message.role.as_str() == "tool" && refused(&message.content)
         }
         _ => false,
     });
+    let rewritten = agent.history().iter().any(|msg| match msg {
+        TranscriptEntry::AssistantToolCalls { tool_calls, .. } => {
+            tool_calls.iter().any(|call| call.name == "use_skill")
+        }
+        _ => false,
+    });
+    assert!(
+        !rewritten,
+        "the bare call must not be rewritten into use_skill"
+    );
     assert!(
         unrouted,
         "a bare call the session would refuse must not be rewritten into use_skill: {:?}",

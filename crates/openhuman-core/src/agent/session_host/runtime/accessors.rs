@@ -435,6 +435,7 @@ impl OpenHumanSessionHost {
             return;
         }
         let deferred = crate::tools::implementations::meta::deferred_set(
+            &self.agent_definition_name,
             self.tools.as_slice(),
             self.synthesized_tools.as_slice(),
             &self.requested_deferred_tools,

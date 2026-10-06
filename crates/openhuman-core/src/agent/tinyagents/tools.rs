@@ -158,9 +158,20 @@ impl Tool for CanonicalSharedToolAdapter {
         match self.resolved_tool().map(Tool::exposure) {
             Some(tinytools::ToolExposure::Deferred) => tinytools::ToolExposure::Deferred,
             // Deferral only subtracts: a session-deferred `Hidden` tool stays
-            // hidden rather than becoming searchable.
+            // hidden rather than becoming searchable. The exception is a
+            // hand-off to another agent (`analyze_image` → `vision_agent`):
+            // every synthesised delegate reports `Hidden`, so a pack-withheld
+            // one could otherwise be found by neither the wire nor search.
             Some(tinytools::ToolExposure::Hidden) if self.force_deferred => {
-                tinytools::ToolExposure::Hidden
+                if self
+                    .resolved_tool()
+                    .and_then(crate::tools::host_extensions::delegation_target)
+                    .is_some()
+                {
+                    tinytools::ToolExposure::Deferred
+                } else {
+                    tinytools::ToolExposure::Hidden
+                }
             }
             Some(tinytools::ToolExposure::Direct) if self.force_deferred => {
                 tinytools::ToolExposure::Deferred

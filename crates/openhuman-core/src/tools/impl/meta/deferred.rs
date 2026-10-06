@@ -85,7 +85,8 @@ pub fn deferred_tool_names(tools: &[Box<dyn Tool>]) -> HashSet<String> {
 
 /// The deferred set of a belt that opted into discovery: every
 /// [`ToolExposure::Deferred`] tool in `durable` and `synthesized`, plus the
-/// `Direct` tools its agent definition lists in `deferred_tools`.
+/// `Direct` tools its agent definition lists in `deferred_tools`, plus every
+/// registered tool the pack table withholds from `agent_id`.
 ///
 /// Exposure is a property of the tool and applies to every agent; a
 /// definition's `deferred_tools` is the per-agent half. It takes a tool that
@@ -93,7 +94,19 @@ pub fn deferred_tool_names(tools: &[Box<dyn Tool>]) -> HashSet<String> {
 /// agent's wire only, where it stays registered, searchable through
 /// `tool_search`, and callable by its own name. A requested name that is not
 /// registered, or is `Hidden`, is ignored: deferral only ever subtracts.
+///
+/// Withheld pack tools are already reachable through `use_skill`; deferring
+/// them keeps their schemas off the wire as before and also puts them in the
+/// `tool_search` catalogue under their own flat schema. Without this, a search
+/// for "describe an image" found nothing and the model had to drive the
+/// nested `use_skill` wrapper, which local models garble. Pack tools the
+/// policy closes because their owner is one hand-off away
+/// ([`toolpacks::closed_by_direct_handoff`]) stay out: searching would only
+/// surface a tool the gate then refuses.
+///
+/// [`toolpacks::closed_by_direct_handoff`]: crate::tools::toolpacks::closed_by_direct_handoff
 pub fn deferred_set(
+    agent_id: &str,
     durable: &[Box<dyn Tool>],
     synthesized: &[Box<dyn Tool>],
     requested: &[String],
@@ -105,6 +118,28 @@ pub fn deferred_set(
             deferred.insert(tool.name().to_string());
         }
     }
+    let all: Vec<&dyn Tool> = durable
+        .iter()
+        .chain(synthesized.iter())
+        .map(|tool| tool.as_ref())
+        .collect();
+    let closed: HashSet<&str> = crate::tools::toolpacks::closed_by_direct_handoff(agent_id, &all)
+        .into_iter()
+        .collect();
+    let packed = all
+        .iter()
+        .map(|tool| tool.name())
+        .filter(|name| crate::tools::toolpacks::ops::is_withheld_from(agent_id, name))
+        .filter(|name| !closed.contains(name))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if !packed.is_empty() {
+        log::debug!(
+            "[tools] pack tools searchable via tool_search agent={agent_id} count={}",
+            packed.len()
+        );
+    }
+    deferred.extend(packed);
     deferred
 }
 

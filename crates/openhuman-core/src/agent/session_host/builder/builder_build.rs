@@ -162,6 +162,7 @@ impl SessionHostBuilder {
             // Plus the tools this agent's definition defers for itself
             // (`deferred_tools`); see `meta::deferred_set`.
             deferred_names.extend(crate::tools::implementations::meta::deferred_set(
+                &agent_definition_name,
                 tools.as_slice(),
                 synthesized_tools.as_slice(),
                 &self.deferred_tools,

@@ -337,11 +337,36 @@ async fn prepare_turn_messages_sends_image_bytes_not_a_disk_path_to_vision_model
 }
 
 #[tokio::test]
-async fn prepare_turn_messages_leaves_non_vision_turns_untouched() {
+async fn prepare_turn_messages_points_text_only_models_at_analyze_image() {
+    // A text-only model used to get "[image omitted]" and answer that it
+    // cannot see images, never reaching the hand-off that can.
     let msg = format!("describe [IMAGE:{TINY_PNG_DATA_URI}]");
     let placeholdered = stash_image_attachments(&msg, &MultimodalConfig::default()).await;
-    let messages = vec![TranscriptMessage::user(placeholdered.clone())];
+    let messages = vec![TranscriptMessage::user(placeholdered)];
 
     let prepared = prepare_turn_messages(messages, false, None).await;
-    assert_eq!(prepared[0].content, placeholdered, "byte-identical request");
+    let content = &prepared[0].content;
+    assert!(
+        content.contains("analyze_image"),
+        "names the hand-off: {content}"
+    );
+    assert!(
+        !content.contains("[Image:"),
+        "no placeholder left to lift: {content}"
+    );
+    assert!(
+        !content.contains("#att:"),
+        "no stash ref left to lift: {content}"
+    );
+    assert!(
+        !content.contains("base64"),
+        "no image bytes for a text model: {content}"
+    );
+}
+
+#[tokio::test]
+async fn prepare_turn_messages_leaves_turns_without_images_untouched() {
+    let messages = vec![TranscriptMessage::user("plain text".to_string())];
+    let prepared = prepare_turn_messages(messages, false, None).await;
+    assert_eq!(prepared[0].content, "plain text");
 }

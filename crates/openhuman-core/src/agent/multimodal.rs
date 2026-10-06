@@ -577,54 +577,6 @@ pub fn rehydrate_image_placeholders(messages: &[TranscriptMessage]) -> Vec<Trans
         .collect()
 }
 
-/// Provider-only copy of a turn's history for a model call: on a vision-capable
-/// model, rehydrate `[Image: … #att:<id>]` placeholders and then resolve every
-/// marker into a provider-ready payload, as the channel harness does
-/// (`agent::harness::graph`).
-///
-/// Rehydration alone leaves an `[IMAGE:<disk path>]` marker, which the message
-/// bridge keeps as plain text, so the model receives a file path instead of the
-/// image and describes something it never saw. A non-vision model gets
-/// `messages` back untouched, which keeps its request byte-identical.
-///
-/// Callers must not persist the returned copy: it carries inline image bytes.
-/// When preparation fails the rehydrated messages are returned and the error
-/// is logged, matching the channel harness's fallback.
-pub async fn prepare_turn_messages(
-    messages: Vec<TranscriptMessage>,
-    vision: bool,
-    config: Option<&crate::config::Config>,
-) -> Vec<TranscriptMessage> {
-    if !vision || !has_image_placeholders(&messages) {
-        return messages;
-    }
-    let rehydrated = rehydrate_image_placeholders(&messages);
-    let defaults;
-    let (images, files) = match config {
-        Some(config) => (&config.multimodal, &config.multimodal_files),
-        None => {
-            defaults = (MultimodalConfig::default(), MultimodalFileConfig::default());
-            (&defaults.0, &defaults.1)
-        }
-    };
-    match prepare_messages_for_provider(&rehydrated, images, files).await {
-        Ok(prepared) => {
-            log::debug!(
-                "[multimodal] prepared turn messages contains_images={} contains_files={}",
-                prepared.contains_images,
-                prepared.contains_files
-            );
-            prepared.messages
-        }
-        Err(error) => {
-            log::warn!(
-                "[multimodal] attachment preparation failed; sending markers as-is: {error}"
-            );
-            rehydrated
-        }
-    }
-}
-
 // ── The on-disk attachment stash ─────────────────────────────────────────
 
 /// Soft cap on the on-disk attachments directory. After each write, oldest
@@ -692,6 +644,10 @@ fn build_attachment_index() -> HashMap<String, PathBuf> {
 pub async fn sweep_stale_attachments() {
     stash().sweep_stale().await;
 }
+
+#[path = "multimodal_turn.rs"]
+mod turn;
+pub use turn::prepare_turn_messages;
 
 #[cfg(test)]
 #[path = "multimodal_tests.rs"]

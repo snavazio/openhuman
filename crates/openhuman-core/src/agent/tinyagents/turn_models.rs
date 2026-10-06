@@ -528,7 +528,12 @@ impl TurnModelSource {
                 cn.primary_override.as_deref(),
                 provider_id,
                 !is_local,
-                !is_local,
+                // Vision follows the shared predicate (managed tier map, else
+                // the registry's `vision` flag), not "any non-local route": a
+                // text-only self-hosted model behind a custom provider would
+                // otherwise be sent inline image bytes it cannot read.
+                !is_local
+                    && crate::inference::model_context::model_supports_vision(model, &cn.config),
                 thread_id,
             );
         }

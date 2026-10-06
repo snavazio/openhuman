@@ -492,11 +492,11 @@ impl OpenHumanTurnPrelude {
             &mut surface.visible_tool_names,
             &agent_definition_name,
         );
-        // Same split as the session host's `recompute_deferred_tool_names`:
-        // a `Deferred` synthesised tool leaves the wire and joins the
-        // searchable set, on a belt that opted into discovery.
+        // Same split as `recompute_deferred_tool_names`: deferred and withheld
+        // pack tools leave the wire and join the searchable set.
         if surface.discovery_enabled {
             let deferred = crate::tools::implementations::meta::deferred_set(
+                &agent_definition_name,
                 surface.tools.as_slice(),
                 synthesized.as_slice(),
                 &surface.requested_deferred_tools,

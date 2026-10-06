@@ -78,7 +78,7 @@ fn deferred_set_adds_requested_direct_tools_and_nothing_else() {
         .into_iter()
         .map(String::from)
         .collect();
-    let set = deferred_set(&durable, &synthesized, &requested);
+    let set = deferred_set("test_agent", &durable, &synthesized, &requested);
     let expected: HashSet<String> = [
         "direct",
         "synth_direct",
@@ -92,7 +92,38 @@ fn deferred_set_adds_requested_direct_tools_and_nothing_else() {
     assert_eq!(set, expected);
 
     // Nothing requested: exactly the exposure-derived set.
-    let plain = deferred_set(&durable, &synthesized, &[]);
+    let plain = deferred_set("test_agent", &durable, &synthesized, &[]);
     assert!(!plain.contains("direct") && !plain.contains("synth_direct"));
     assert!(plain.contains("synth_deferred") && plain.contains("deferred"));
+}
+
+/// A tool the pack table withholds from an agent (`create_image` in the
+/// orchestrator's `media` pack) joins that agent's searchable set, so
+/// `tool_search` finds it under its own schema. An agent the pack does not
+/// withhold it from is unaffected, and an unregistered pack tool is not invented.
+#[test]
+fn deferred_set_makes_withheld_pack_tools_searchable() {
+    let durable: Vec<Box<dyn Tool>> = vec![
+        Box::new(Fake("create_image", ToolExposure::Direct)),
+        Box::new(Fake("direct", ToolExposure::Direct)),
+    ];
+    let set = deferred_set("orchestrator", &durable, &[], &[]);
+    assert!(
+        set.contains("create_image"),
+        "withheld pack tool is searchable"
+    );
+    assert!(
+        !set.contains("direct"),
+        "an unpacked direct tool stays on the wire"
+    );
+    assert!(
+        !set.contains("create_video"),
+        "unregistered pack tools are not invented"
+    );
+
+    let other = deferred_set("image_agent", &durable, &[], &[]);
+    assert!(
+        !other.contains("create_image"),
+        "a pack owner keeps its own belt"
+    );
 }

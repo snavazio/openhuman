@@ -300,3 +300,43 @@ async fn a_sub_agents_route_success_does_not_clear_the_leads_slot() {
         "a child's route success cleared the lead's recorded failure"
     );
 }
+
+fn custom_provider_source(registry_vision: bool) -> TurnModelSource {
+    let mut config = crate::config::Config::default();
+    config
+        .cloud_providers
+        .push(crate::config::schema::cloud_providers::CloudProviderCreds {
+            id: "p_ds".to_string(),
+            slug: "deepseek".to_string(),
+            label: "DeepSeek".to_string(),
+            endpoint: "https://api.deepseek.com/v1".to_string(),
+            auth_style: crate::config::schema::cloud_providers::AuthStyle::Bearer,
+            default_model: Some("deepseek-chat".to_string()),
+            ..Default::default()
+        });
+    config.chat_provider = Some("deepseek:deepseek-chat".to_string());
+    config
+        .model_registry
+        .push(crate::config::schema::ModelRegistryEntry {
+            id: "deepseek-chat".to_string(),
+            provider: "deepseek".to_string(),
+            vision: registry_vision,
+            ..Default::default()
+        });
+    TurnModelSource::new_crate_native("chat", Arc::new(config))
+}
+
+#[test]
+fn custom_provider_turn_vision_follows_the_model_registry() {
+    // `!is_local` alone marked every custom provider vision-capable, so a
+    // text-only self-hosted chat model was sent inline image bytes.
+    let _guard = crate::inference::inference_test_guard();
+    let text_only = custom_provider_source(false)
+        .build("deepseek-chat", 0.7, None, None)
+        .expect("custom provider turn models build");
+    assert!(!text_only.supports_vision());
+    let vision = custom_provider_source(true)
+        .build("deepseek-chat", 0.7, None, None)
+        .expect("custom provider turn models build");
+    assert!(vision.supports_vision());
+}
