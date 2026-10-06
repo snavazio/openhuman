@@ -242,7 +242,8 @@ fn orchestrator_reaches_the_replaced_specialists_tools_through_discovery() {
         "cron",
         "config_snapshot",
         "service_restart",
-        "gitbooks_search",
+        // LOCAL-ONLY FORK: `gitbooks_search` is off by default (it dials the
+        // public docs site), so a default profile does not register it.
         "edit",
         "curl",
         "read_diff",

@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct GitbooksConfig {
     /// When `true`, register `gitbooks_search` and `gitbooks_get_page`.
-    #[serde(default = "defaults::default_true")]
+    /// LOCAL-ONLY FORK: off by default — the docs live on the public internet
+    /// (tinyhumans.gitbook.io), which an air-gapped build must not dial.
+    #[serde(default)]
     pub enabled: bool,
     /// MCP endpoint URL for the OpenHuman GitBook docs.
     #[serde(default = "default_gitbooks_endpoint")]
@@ -29,7 +31,7 @@ fn default_gitbooks_timeout_secs() -> u64 {
 impl Default for GitbooksConfig {
     fn default() -> Self {
         Self {
-            enabled: defaults::default_true(),
+            enabled: false,
             endpoint: default_gitbooks_endpoint(),
             timeout_secs: default_gitbooks_timeout_secs(),
         }

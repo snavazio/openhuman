@@ -380,6 +380,34 @@ fn all_tools_omits_mcp_tools_when_gate_off() {
     );
 }
 
+/// LOCAL-ONLY FORK: a default profile must not register the docs tools,
+/// because they dial tinyhumans.gitbook.io on the public internet.
+#[test]
+fn all_tools_skips_gitbooks_by_default() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let browser = BrowserConfig::default();
+    let http = crate::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    assert!(!cfg.gitbooks.enabled, "gitbooks must default to disabled");
+
+    let tools = all_tools(
+        Arc::new(cfg.clone()),
+        &security,
+        AuditLogger::disabled(),
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert!(
+        !names.iter().any(|n| n.starts_with("gitbooks_")),
+        "no gitbooks tool may register by default; got: {names:?}"
+    );
+}
+
 #[test]
 fn all_tools_skips_gitbooks_when_disabled() {
     let tmp = TempDir::new().unwrap();
