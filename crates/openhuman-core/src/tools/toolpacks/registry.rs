@@ -438,7 +438,12 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
 /// The lookup surface over [`PACKS`] handed to the generic `use_skill` tool
 /// (`tinyagents_harness::tool::packs`). `NOT_FOUND_MARKER` is the host's status
 /// vocabulary, so a "no such skill / tool" result classifies as `NotFound`.
-pub const CATALOG: PackCatalog = PackCatalog::new(PACKS, crate::tools::status::NOT_FOUND_MARKER);
+/// Direct calls: the orchestrator registers withheld pack tools as deferred
+/// (`meta::deferred_set`) and routes bare packed calls through `use_skill`
+/// (`PackedToolRouteMiddleware`), so a flat `tool { … }` call is admitted, and
+/// it is the form local models get right where the nested one fails.
+pub const CATALOG: PackCatalog =
+    PackCatalog::new(PACKS, crate::tools::status::NOT_FOUND_MARKER).with_direct_calls();
 
 pub fn pack(id: &str) -> Option<&'static ToolPack> {
     CATALOG.pack(id)
