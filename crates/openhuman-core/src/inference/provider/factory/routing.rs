@@ -80,7 +80,16 @@ pub(crate) fn role_uses_implicit_cloud_fallback(role: &str, config: &Config) -> 
 pub fn provider_for_role(role: &str, config: &Config) -> String {
     let opt = configured_route_for_role(role, config);
     let s = opt.unwrap_or("").trim();
-    if s.is_empty() || s == "cloud" {
+    // LOCAL-ONLY FORK: an explicit `"openhuman"` route is treated like an unset
+    // or `"cloud"` one and falls back to the local runtime. The managed backend
+    // does not exist in this build, so honouring it could only fail (and the
+    // failure surfaced as "out of credits").
+    if s == PROVIDER_OPENHUMAN {
+        log::debug!(
+            "[providers][local-only] role={role} explicit openhuman route falls back to the local runtime"
+        );
+    }
+    if s.is_empty() || s == "cloud" || s == PROVIDER_OPENHUMAN {
         // #6109: an unset chat-tier route no longer inherits a sibling's BYOK
         // provider. Setting only `coding_provider` used to move `chat` and
         // `reasoning` onto that key too — ordinary conversations silently billed

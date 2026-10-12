@@ -4,7 +4,9 @@ use super::*;
 fn reexported_config_default_is_constructible() {
     let config = Config::default();
 
-    assert!(config.default_model.is_some());
+    // LOCAL-ONLY FORK: no managed default model; the local runtime's default
+    // (`local_default_model()`) applies when a role is unset.
+    assert!(config.default_model.is_none());
     assert!(config.default_temperature > 0.0);
 }
 

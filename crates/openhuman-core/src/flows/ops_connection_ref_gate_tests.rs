@@ -1,14 +1,11 @@
 use super::*;
 
-/// The negative-probe cache (design correction, item 3): a definitive
-/// `provider_not_configured` result must be served from cache within the TTL
-/// exactly like a `"ready"` result, so an edit -> validate -> propose -> run
-/// authoring/run burst hits the mock backend once, not once per call (the judge's
-/// live run observed 4 network round trips in a single ~80s turn before this
-/// fix). Uses a real local axum server (no real network) that counts requests
-/// so a cache hit is provable, not just plausible.
+/// LOCAL-ONLY FORK: upstream proved the negative-probe cache by probing the
+/// managed backend against a counting mock. In this build every route resolves
+/// to the local runtime, which `probe_inference_readiness` treats as ready
+/// without a network round trip, so the counting mock must see zero requests.
 #[tokio::test]
-async fn cached_probe_inference_readiness_caches_a_negative_result() {
+async fn cached_probe_for_a_local_route_makes_no_network_request() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     let tmp = TempDir::new().unwrap();
@@ -21,8 +18,10 @@ async fn cached_probe_inference_readiness_caches_a_negative_result() {
         .await
         .expect("bind");
     let addr = listener.local_addr().expect("local_addr");
+    // LOCAL-ONLY FORK: roles resolve to the local runtime, which posts to
+    // `<local_ai.base_url>/v1/chat/completions`; the mock serves that path.
     let app = axum::Router::new().route(
-        "/openai/v1/chat/completions",
+        "/v1/chat/completions",
         axum::routing::post(move || {
             let counter = counter.clone();
             async move {
@@ -43,33 +42,23 @@ async fn cached_probe_inference_readiness_caches_a_negative_result() {
     tokio::spawn(async move {
         axum::serve(listener, app).await.expect("serve");
     });
-    config.api_url = Some(format!("http://{addr}"));
+    config.local_ai.base_url = Some(format!("http://{addr}"));
 
     // First call: a real (mock) network round trip, definitively rejected.
+    // LOCAL-ONLY FORK: only a managed-backend route is probed over the
+    // network, and no route resolves there any more. A local route is ready
+    // without a request, so the mock (which would reject) is never reached.
     let first = cached_probe_inference_readiness("summarization", &config).await;
-    let err = first.expect_err("a confirmed provider-not-configured 400 must reject");
     assert!(
-        err.to_ascii_lowercase()
-            .contains("api key not configured for provider"),
-        "error must surface the backend's own message: {err}"
+        first.is_ok(),
+        "a local route is ready without probing: {first:?}"
     );
-    assert_eq!(
-        hit_count.load(Ordering::SeqCst),
-        1,
-        "the first call must hit the (mock) network exactly once"
-    );
-
-    // Second call, same (role, config_path) key, well within the TTL: must be
-    // served from cache — the mock server's hit count must NOT increase.
     let second = cached_probe_inference_readiness("summarization", &config).await;
-    assert!(
-        second.is_err(),
-        "the cached negative result must still be an Err"
-    );
+    assert!(second.is_ok(), "a repeat probe stays ready: {second:?}");
     assert_eq!(
         hit_count.load(Ordering::SeqCst),
-        1,
-        "a repeat probe within the TTL must be served from cache, not hit the network again"
+        0,
+        "probing a local route must not make any network request"
     );
 }
 

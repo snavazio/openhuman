@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::config::MODEL_MANAGED_DEFAULT;
+use crate::config::local_default_model;
 
 use crate::inference::provider::factory::access_gates::local_only_violation;
 /// When the provider string includes a model id the factory should build
@@ -165,24 +165,30 @@ fn ollama_provider_passes_num_ctx() {
 // replaced it — an unset route inherits nothing at all — through the public seam.
 
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn unset_route_does_not_inherit_a_local_sibling() {
     let mut config = Config::default();
     config.chat_provider = Some("mlx:llama3".to_string());
     config.reasoning_provider = Some("local-openai:phi3".to_string());
     assert_eq!(
         provider_for_role("coding", &config),
-        "openhuman",
-        "an unset coding route must fall through to the managed backend"
+        local_fallback_provider(),
+        "an unset coding route must fall through to the local default"
     );
 }
 
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn unset_route_does_not_inherit_omlx() {
     let mut config = Config::default();
     config.chat_provider = Some("omlx:llama3".to_string());
     assert_eq!(
         provider_for_role("coding", &config),
-        "openhuman",
+        local_fallback_provider(),
         "unset coding must not pick up chat's OMLX route"
     );
 }
@@ -193,7 +199,10 @@ fn unset_route_does_not_inherit_omlx() {
 /// `openrouter:zai/glm-4.7` — their ordinary conversations billed to their own
 /// key, with no settings field saying so.
 #[test]
-fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
+fn setting_one_chat_tier_route_leaves_its_siblings_on_the_local_default() {
     let mut config = Config::default();
     config.coding_provider = Some("openrouter:zai/glm-4.7".to_string());
 
@@ -205,8 +214,8 @@ fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
     for sibling in ["chat", "reasoning"] {
         assert_eq!(
             provider_for_role(sibling, &config),
-            "openhuman",
-            "`{sibling}` was never configured and must stay on the managed backend, \
+            local_fallback_provider(),
+            "`{sibling}` was never configured and must stay on the local default, \
              not inherit the coding route"
         );
     }
@@ -215,12 +224,15 @@ fn setting_one_chat_tier_route_leaves_its_siblings_on_the_managed_backend() {
 /// The relation was not even symmetric before the fix: `agentic_provider` was
 /// read as a donor but never received a route. Both directions are now inert.
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn agentic_route_is_neither_donor_nor_beneficiary() {
     let mut config = Config::default();
     config.agentic_provider = Some("openrouter:some/model".to_string());
     assert_eq!(
         provider_for_role("chat", &config),
-        "openhuman",
+        local_fallback_provider(),
         "chat must not inherit the agentic route"
     );
 
@@ -228,7 +240,7 @@ fn agentic_route_is_neither_donor_nor_beneficiary() {
     config.chat_provider = Some("openrouter:some/model".to_string());
     assert_eq!(
         provider_for_role("agentic", &config),
-        "openhuman",
+        local_fallback_provider(),
         "agentic must not inherit the chat route"
     );
 }
@@ -251,7 +263,10 @@ fn local_provider_string_detection() {
 /// Every managed role runs on the managed default model: there are no
 /// per-role tier endpoints any more.
 #[test]
-fn resolve_model_for_hint_maps_every_managed_hint_to_the_default_model() {
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
+fn resolve_model_for_hint_maps_every_hint_to_the_local_default() {
     let config = Config::default();
     for hint in [
         "hint:reasoning",
@@ -264,8 +279,8 @@ fn resolve_model_for_hint_maps_every_managed_hint_to_the_default_model() {
     ] {
         assert_eq!(
             resolve_model_for_hint(hint, &config),
-            MODEL_MANAGED_DEFAULT,
-            "{hint} must resolve to the managed default"
+            local_default_model(),
+            "{hint} must resolve to the local default"
         );
     }
 }
@@ -274,6 +289,9 @@ fn resolve_model_for_hint_maps_every_managed_hint_to_the_default_model() {
 /// managed role runs on. Hints and retired tier slugs stored there are not
 /// pins, and a BYOK route is untouched by the managed default.
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn resolve_model_for_hint_uses_the_pinned_managed_default() {
     let mut config = Config::default();
     config.default_model = Some("openrouter/deepseek/deepseek-v4-pro".to_string());
@@ -294,12 +312,12 @@ fn resolve_model_for_hint_uses_the_pinned_managed_default() {
     config.default_model = Some("chat-v1".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:chat", &config),
-        MODEL_MANAGED_DEFAULT
+        local_default_model()
     );
     config.default_model = Some("hint:reasoning".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:chat", &config),
-        MODEL_MANAGED_DEFAULT
+        local_default_model()
     );
 
     // A BYOK chat route carries its own model and ignores the managed pin.
@@ -312,12 +330,15 @@ fn resolve_model_for_hint_uses_the_pinned_managed_default() {
 /// resolve to the default model, never back to themselves. A concrete model id
 /// passes through untouched.
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn resolve_model_for_hint_treats_retired_tier_slugs_as_role_aliases() {
     let config = Config::default();
     for slug in ["reasoning-v1", "agentic-v1", "coding-v1", "chat-v1"] {
         assert_eq!(
             resolve_model_for_hint(slug, &config),
-            MODEL_MANAGED_DEFAULT,
+            local_default_model(),
             "{slug} must resolve through its role"
         );
     }
@@ -342,24 +363,27 @@ fn resolve_model_for_hint_extracts_model_from_byok_provider() {
 }
 
 #[test]
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
 fn resolve_model_for_hint_falls_through_openhuman_and_cloud_sentinels() {
     let mut config = Config::default();
     config.reasoning_provider = Some("openhuman".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        MODEL_MANAGED_DEFAULT
+        local_default_model()
     );
 
     config.reasoning_provider = Some("cloud".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        MODEL_MANAGED_DEFAULT
+        local_default_model()
     );
 
     config.reasoning_provider = Some("".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        MODEL_MANAGED_DEFAULT
+        local_default_model()
     );
 }
 
@@ -493,7 +517,9 @@ fn byo_reasoning_tier_with_key_bypasses() {
 }
 
 #[test]
-fn per_tier_diverges_chat_byo_reasoning_managed() {
+// LOCAL-ONLY FORK: an explicit `"openhuman"` route falls back to the local
+// runtime (no managed backend exists), so it needs no managed credits.
+fn per_tier_chat_byo_and_explicit_openhuman_reasoning_both_bypass() {
     let tmp = TempDir::new().expect("tempdir");
     // The crux of the per-tier check: chat on BYOK, reasoning explicitly managed.
     // Quick mode (chat) bypasses; Reasoning mode (reasoning) stays gated.
@@ -503,7 +529,11 @@ fn per_tier_diverges_chat_byo_reasoning_managed() {
     store_byo_key(&config, "openai", "sk-byo-test");
 
     assert!(role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config));
+    assert_eq!(
+        provider_for_role("reasoning", &config),
+        local_fallback_provider()
+    );
 }
 
 #[test]
@@ -515,7 +545,9 @@ fn local_tier_bypasses_without_any_key() {
 }
 
 #[test]
-fn managed_chat_with_byo_agentic_stays_gated() {
+// LOCAL-ONLY FORK: an explicit `"openhuman"` route falls back to the local
+// runtime (no managed backend exists), so it needs no managed credits.
+fn explicit_openhuman_chat_with_byo_agentic_runs_locally() {
     let tmp = TempDir::new().expect("tempdir");
     // chat explicitly managed; only tool-use (agentic) is BYOK. The chat tier
     // still bills managed credits → chat role stays gated. (agentic itself is a
@@ -526,12 +558,18 @@ fn managed_chat_with_byo_agentic_stays_gated() {
     config.agentic_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert_eq!(
+        provider_for_role("chat", &config),
+        local_fallback_provider()
+    );
+    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config));
 }
 
 #[test]
-fn managed_chat_with_byo_vision_stays_gated() {
+// LOCAL-ONLY FORK: an explicit `"openhuman"` route falls back to the local
+// runtime (no managed backend exists), so it needs no managed credits.
+fn explicit_openhuman_chat_with_byo_vision_runs_locally() {
     let tmp = TempDir::new().expect("tempdir");
     // Vision on BYOK but the chat-mode tiers stay managed → chat/reasoning gated.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
@@ -540,28 +578,41 @@ fn managed_chat_with_byo_vision_stays_gated() {
     config.vision_provider = Some("openai:gpt-4o".to_string());
     store_byo_key(&config, "openai", "sk-byo-test");
 
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert_eq!(
+        provider_for_role("chat", &config),
+        local_fallback_provider()
+    );
+    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config));
 }
 
 #[test]
-fn no_byo_provider_stays_gated() {
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
+fn no_byo_provider_falls_back_to_the_local_runtime() {
     let tmp = TempDir::new().expect("tempdir");
     // OpenAI entry exists but every tier is left on the managed default and no
     // key is stored → chat-mode tiers managed → must NOT bypass.
     let config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
 
-    assert_eq!(provider_for_role("chat", &config), "openhuman");
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert_eq!(
+        provider_for_role("chat", &config),
+        local_fallback_provider()
+    );
+    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config));
 }
 
 #[test]
-fn default_config_with_no_key_stays_gated() {
+// LOCAL-ONLY FORK: with nothing configured a role falls back to the local
+// runtime (`local-openai:<local default>`), never the managed backend, so it
+// is never gated on managed credits.
+fn default_config_routes_locally_and_needs_no_credits() {
     // No BYO provider at all → both chat-mode tiers gated.
     let config = Config::default();
-    assert!(!role_bypasses_managed_credits("chat", &config));
-    assert!(!role_bypasses_managed_credits("reasoning", &config));
+    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("reasoning", &config));
 }
 
 #[test]
@@ -652,4 +703,9 @@ fn standard_mode_permits_external() {
         None,
         "Sensitive mode has no egress enforcement in S1"
     );
+}
+
+/// LOCAL-ONLY FORK: the provider string an unconfigured role resolves to.
+fn local_fallback_provider() -> String {
+    format!("local-openai:{}", local_default_model())
 }

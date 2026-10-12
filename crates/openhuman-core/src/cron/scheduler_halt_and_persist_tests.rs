@@ -304,15 +304,22 @@ fn is_local_provider_unreachable_failure_does_not_halt_shell_jobs() {
 }
 
 #[tokio::test]
-async fn run_agent_job_returns_error_without_provider_key() {
+async fn run_agent_job_returns_error_when_the_provider_is_unreachable() {
     let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
+    // LOCAL-ONLY FORK: with no provider configured the job falls back to the
+    // local runtime; point it at a closed port so the job fails without
+    // reaching a live model on this machine.
+    let mut config = test_config(&tmp).await;
+    config.local_ai.base_url = Some("http://127.0.0.1:9".into());
     let mut job = test_job("");
     job.job_type = JobType::Agent;
     job.prompt = Some("Say hello".into());
 
     let (success, output, raw_error) = run_agent_job(&config, &job).await;
-    assert!(!success, "Agent job without provider key should fail");
+    assert!(
+        !success,
+        "Agent job whose provider is unreachable should fail"
+    );
     assert!(output.contains("Something went wrong. Please try again."));
     assert!(!output.contains("<openhuman-link"));
     assert!(

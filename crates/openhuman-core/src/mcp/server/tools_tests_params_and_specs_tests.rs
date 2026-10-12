@@ -2,7 +2,11 @@ use super::*;
 
 #[test]
 fn list_tools_exposes_base_mcp_surface_when_searxng_disabled() {
-    let config = crate::config::Config::default();
+    // LOCAL-ONLY FORK: SearXNG is the default search provider, so disable it
+    // (and the provider list) explicitly to see the base surface.
+    let mut config = crate::config::Config::default();
+    config.searxng.enabled = false;
+    config.search.providers.clear();
     let result = list_tools_result_for_config(&config);
     let names = result["tools"]
         .as_array()
@@ -273,7 +277,17 @@ fn search_tools_follow_usable_roles() {
     let names = |specs: Vec<super::types::McpToolSpec>| {
         specs.into_iter().map(|s| s.name).collect::<Vec<_>>()
     };
-    let config = crate::config::Config::default();
+    // LOCAL-ONLY FORK: select the managed exa/gemini providers explicitly
+    // (fresh installs only carry SearXNG) to exercise the signed-in gate.
+    let mut config = crate::config::Config::default();
+    config.searxng.enabled = false;
+    config.search.providers.clear();
+    for name in ["exa", "gemini"] {
+        config.search.providers.insert(
+            name.into(),
+            crate::config::SearchProviderSettings::managed(),
+        );
+    }
     let signed_out = names(tool_specs_for_config(&config, false));
     assert!(!signed_out.contains(&"web_search"));
     assert!(!signed_out.contains(&"web_answer"));

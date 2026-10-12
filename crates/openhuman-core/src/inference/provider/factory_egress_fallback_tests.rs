@@ -1,15 +1,14 @@
 use super::*;
 
-/// Real-path smoke (privacy epic S2, #4436): the crate-native ChatModel path
-/// `create_chat_model_with_model_id` — the path production agent turns use
-/// post-#4784 — must emit EXACTLY ONE egress descriptor for a managed-backend
-/// (external) construction. Regression guard for the gap where emit lived only
-/// on the legacy `Provider` path, so the default managed turn disclosed nothing.
+/// Real-path smoke (privacy epic S2, #4436), LOCAL-ONLY FORK: with nothing
+/// configured, `create_chat_model_with_model_id` falls back to the local runtime
+/// instead of the managed backend, so it must emit NO external egress
+/// descriptor. Upstream asserted exactly one for the managed construction.
 #[tokio::test]
-async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
+async fn create_chat_model_default_config_emits_no_external_egress_realpath() {
     use crate::core::bus::BUS;
     use crate::core::events::DomainEvent;
-    use crate::security::egress::{EgressDescriptor, EgressReason};
+    use crate::security::egress::EgressDescriptor;
     use std::time::Duration;
 
     crate::core::bus::init().await.expect("bus init");
@@ -37,9 +36,6 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
         match tokio::time::timeout(Duration::from_secs(3), rx.recv()).await {
             Ok(Some(DomainEvent::ExternalTransferPending { descriptor, .. })) => {
                 if descriptor.service == marker {
-                    assert_eq!(descriptor.provider_slug, "openhuman");
-                    assert!(descriptor.is_external, "managed backend is external");
-                    assert!(matches!(descriptor.reason, EgressReason::Inference));
                     count += 1;
                 } else if descriptor.service == sentinel {
                     break;
@@ -51,8 +47,8 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
         }
     }
     assert_eq!(
-        count, 1,
-        "managed inference via create_chat_model_with_model_id must emit EXACTLY ONE egress descriptor (no miss, no double)"
+        count, 0,
+        "an unconfigured role falls back to the local runtime and must emit NO external egress"
     );
 }
 
@@ -109,13 +105,12 @@ async fn create_chat_model_local_runtime_does_not_emit_egress_realpath() {
 // local-chat + managed-subscription users without a failing test.
 
 #[test]
-fn local_chat_still_routes_background_roles_to_the_managed_backend() {
+fn local_chat_routes_unconfigured_background_roles_to_the_local_runtime() {
     let mut config = Config::default();
     config.chat_provider = Some("ollama:gemma3:1b".to_string());
 
-    // Every background role keeps falling through to the managed backend: they
-    // run tier-specific models a local runtime does not serve, and the user's
-    // subscription is what pays for them.
+    // LOCAL-ONLY FORK: every unconfigured background role falls back to the
+    // local runtime; there is no managed backend or subscription to pay for it.
     for role in [
         "vision",
         "embeddings",
@@ -127,8 +122,8 @@ fn local_chat_still_routes_background_roles_to_the_managed_backend() {
     ] {
         assert_eq!(
             provider_for_role(role, &config),
-            "openhuman",
-            "role '{role}' must keep falling back to the managed backend when chat is local"
+            format!("local-openai:{}", crate::config::local_default_model()),
+            "role '{role}' must fall back to the local runtime when chat is local"
         );
     }
 }

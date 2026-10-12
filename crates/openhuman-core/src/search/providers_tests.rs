@@ -30,7 +30,12 @@ fn role_keys_match_the_contract_serde_names() {
 
 #[test]
 fn managed_providers_need_a_backend_credential() {
-    let config = Config::default();
+    // LOCAL-ONLY FORK: exa/gemini are not default providers; select them as
+    // managed to exercise the backend-credential rule.
+    let config = config_with(&[
+        ("exa", SearchProviderSettings::managed()),
+        ("gemini", SearchProviderSettings::managed()),
+    ]);
     let signed_out = resolve_with(&config, false);
     assert!(!find(&signed_out, "exa").usable);
     assert_eq!(

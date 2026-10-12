@@ -58,9 +58,10 @@ async fn load_or_init_non_utf8_falls_back_to_defaults_when_backup_also_non_utf8(
 
     let config = load_or_init_for_workspace(root).await;
 
+    // LOCAL-ONLY FORK: compare against the actual default (`None` here).
     assert_eq!(
-        config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
+        config.default_model,
+        Config::default().default_model,
         "must fall back to defaults when both config and backup have non-UTF-8 content"
     );
 

@@ -18,16 +18,25 @@ fn config_with_chat_provider(s: Option<&str>) -> Config {
 }
 
 #[test]
-fn chat_provider_unset_blank_or_sentinel_resolves_to_cloud() {
+// LOCAL-ONLY FORK: every route (unset, "cloud" or an explicit "openhuman")
+// resolves to the local runtime, which needs no OpenHuman session, so
+// signing out never blocks inference.
+fn chat_provider_unset_blank_or_sentinel_resolves_to_local_runtime() {
     for value in [None, Some(""), Some("cloud"), Some("openhuman")] {
         let config = config_with_chat_provider(value);
-        assert!(
-            matches!(
-                resolve_chat_workload(&config),
-                ChatWorkloadResolution::Cloud
-            ),
-            "{value:?} must resolve to cloud"
-        );
+        let expected = format!("local-openai:{}", crate::config::local_default_model());
+        match resolve_chat_workload(&config) {
+            ChatWorkloadResolution::Workload {
+                provider_string,
+                slug,
+            } => {
+                assert_eq!(provider_string, expected, "{value:?}");
+                assert_eq!(slug, "local-openai", "{value:?}");
+            }
+            ChatWorkloadResolution::Cloud => {
+                panic!("{value:?} must resolve to the local runtime, not cloud")
+            }
+        }
     }
 }
 

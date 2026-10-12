@@ -142,20 +142,20 @@ async fn inference_get_client_config_returns_safe_snapshot() {
         .expect("client config snapshot");
     assert!(outcome.value.get("cloud_providers").is_some());
     assert!(outcome.value.get("api_key_set").is_some());
-    // #3767: authoritative per-tier credits-gate bypass map is present and, with
-    // no BYO provider configured, every tier defaults to false (inference still
-    // bills managed credits).
+    // #3767: authoritative per-tier credits-gate bypass map is present.
+    // LOCAL-ONLY FORK: with no BYO provider configured every tier falls back to
+    // the local runtime, which needs no managed credits, so each bypasses.
     let credits_bypass = outcome
         .value
         .get("credits_bypass")
         .expect("credits_bypass present");
     assert_eq!(
         credits_bypass.get("chat"),
-        Some(&serde_json::Value::Bool(false))
+        Some(&serde_json::Value::Bool(true))
     );
     assert_eq!(
         credits_bypass.get("reasoning"),
-        Some(&serde_json::Value::Bool(false))
+        Some(&serde_json::Value::Bool(true))
     );
 }
 

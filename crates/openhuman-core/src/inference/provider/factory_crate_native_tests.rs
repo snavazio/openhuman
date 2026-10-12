@@ -174,12 +174,14 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
 // provider adapter.
 
 #[test]
-fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
-    // A default config has no BYOK/cloud providers, so every chat-tier role
-    // resolves to the managed OpenHuman backend.
-    let managed = Config::default();
-    assert!(resolves_to_managed_backend("chat", &managed));
-    assert!(resolves_to_managed_backend("reasoning", &managed));
+// LOCAL-ONLY FORK: a default config falls back to the local runtime
+// (`local-openai:<local default>`), never the managed OpenHuman backend.
+fn default_config_never_resolves_to_the_managed_backend() {
+    // A default config has no BYOK/cloud providers, yet no chat-tier role
+    // resolves to the managed backend: they fall back to the local runtime.
+    let unconfigured = Config::default();
+    assert!(!resolves_to_managed_backend("chat", &unconfigured));
+    assert!(!resolves_to_managed_backend("reasoning", &unconfigured));
 
     // Pointing the chat role at a local runtime opts it out of the managed path.
     let mut local = Config::default();
@@ -188,18 +190,21 @@ fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
 }
 
 #[test]
-fn create_chat_model_routes_managed_backend_to_crate_native() {
+// LOCAL-ONLY FORK: a default config falls back to the local runtime
+// (`local-openai:<local default>`), never the managed OpenHuman backend.
+fn create_chat_model_routes_default_config_to_the_local_runtime() {
     let _guard = crate::inference::inference_test_guard();
-    // No test-provider override installed → the managed short-circuit engages.
+    // No test-provider override installed → the local fallback engages.
     let config = Config::default();
-    let (model, _model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
-        .expect("managed create_chat_model must build");
+    let (model, model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+        .expect("default create_chat_model must build");
+    assert_eq!(model_id, crate::config::local_default_model());
     assert_eq!(
         model
             .profile()
             .and_then(|profile| profile.provider.as_deref()),
-        Some("managed"),
-        "managed backend must expose the crate-native managed profile"
+        Some("local-openai"),
+        "an unconfigured chat role must build the local-openai runtime"
     );
 }
 
@@ -241,10 +246,10 @@ fn explicit_local_provider_string_routes_to_crate_native_model() {
 }
 
 #[test]
-fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
+fn try_create_local_runtime_builds_for_default_and_none_for_cloud() {
     let _guard = crate::inference::inference_test_guard();
-    // Default config resolves to the managed backend, not a local runtime.
-    assert!(try_create_local_runtime_chat_model("chat", &Config::default()).is_none());
+    // LOCAL-ONLY FORK: the default config resolves to the local runtime.
+    assert!(try_create_local_runtime_chat_model("chat", &Config::default()).is_some());
     // A BYOK cloud slug is not a local runtime either — it falls through to the
     // `Provider` path.
     let mut cloud = Config::default();

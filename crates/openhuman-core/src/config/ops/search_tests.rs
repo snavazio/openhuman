@@ -160,6 +160,16 @@ fn seltz_and_searxng_patches_update_their_sections() {
 #[test]
 fn settings_view_reports_status_roles_and_never_keys() {
     let mut config = Config::default();
+    // LOCAL-ONLY FORK: exa/gemini are not default providers; select them as
+    // managed so their status and routes are reported, without the default
+    // SearXNG entry.
+    config.search.providers.clear();
+    for name in ["exa", "gemini"] {
+        config
+            .search
+            .providers
+            .insert(name.into(), SearchProviderSettings::managed());
+    }
     config.search.gemini.api_key = Some("secret-gemini".into());
     let view = search_settings_json_with(&config, true);
     assert_eq!(view["enabled"], true);

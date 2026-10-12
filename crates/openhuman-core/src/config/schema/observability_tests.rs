@@ -1,31 +1,33 @@
 use super::*;
 use serde_json::json;
 
+// LOCAL-ONLY FORK: analytics, usage-data sharing and content capture are all
+// off by default; nothing is reported off-machine unless the operator opts in.
 #[test]
-fn default_enables_analytics() {
+fn default_disables_analytics() {
     let cfg = ObservabilityConfig::default();
     assert!(cfg.sentry_dsn.is_none());
-    assert!(cfg.analytics_enabled);
+    assert!(!cfg.analytics_enabled);
 }
 
 #[test]
-fn default_analytics_enabled_helper_returns_true() {
-    assert!(default_analytics_enabled());
+fn default_analytics_enabled_helper_returns_false() {
+    assert!(!default_analytics_enabled());
 }
 
 #[test]
-fn share_usage_data_is_on_by_default() {
-    assert!(default_share_usage_data());
-    assert!(ObservabilityConfig::default().share_usage_data);
+fn share_usage_data_is_off_by_default() {
+    assert!(!default_share_usage_data());
+    assert!(!ObservabilityConfig::default().share_usage_data);
 }
 
 #[test]
 fn deserialize_missing_optional_fields_uses_defaults() {
     let cfg: ObservabilityConfig = serde_json::from_value(json!({})).unwrap();
-    assert!(cfg.analytics_enabled, "analytics default must be true");
+    assert!(!cfg.analytics_enabled, "analytics default must be false");
     assert!(
-        cfg.share_usage_data,
-        "usage-data sharing is on by default (consent to Langfuse push)"
+        !cfg.share_usage_data,
+        "usage-data sharing is off by default (no Langfuse push)"
     );
     // The local exporter stays opt-in and vendor-neutral by default.
     assert!(
@@ -35,19 +37,19 @@ fn deserialize_missing_optional_fields_uses_defaults() {
     assert_eq!(cfg.agent_tracing.backend, AgentTracingBackend::Otel);
     assert!(cfg.agent_tracing.export_path.is_none());
     assert!(
-        cfg.agent_tracing.capture_content,
-        "content capture is on by default (deliberate product decision)"
+        !cfg.agent_tracing.capture_content,
+        "content capture is off by default in the local-only build"
     );
 }
 
 #[test]
-fn capture_content_defaults_true_and_can_be_disabled() {
-    assert!(AgentTracingConfig::default().capture_content);
+fn capture_content_defaults_false_and_can_be_enabled() {
+    assert!(!AgentTracingConfig::default().capture_content);
     let cfg: ObservabilityConfig = serde_json::from_value(json!({
-        "agent_tracing": { "capture_content": false }
+        "agent_tracing": { "capture_content": true }
     }))
     .unwrap();
-    assert!(!cfg.agent_tracing.capture_content);
+    assert!(cfg.agent_tracing.capture_content);
 }
 
 #[test]

@@ -96,10 +96,12 @@ fn offline_config() -> Config {
 }
 
 #[test]
-fn the_default_config_enables_modules_and_downloads() {
+fn the_default_config_enables_modules_but_not_downloads() {
+    // LOCAL-ONLY FORK: modules load from the bundled directory only; nothing
+    // is downloaded unless the operator opts in.
     let config = Config::default();
     assert!(config.modules.enabled);
-    assert!(config.modules.allow_download);
+    assert!(!config.modules.allow_download);
     assert!(config.modules.install_dir.is_none());
     assert!(config.modules.overrides.is_empty());
 }

@@ -430,10 +430,12 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
         None,
         0.0,
     );
+    // LOCAL-ONLY FORK: the explicit `"openhuman"` route falls back to the
+    // local runtime, so the role resolves to the local default model.
     assert_eq!(
         resolved_model,
-        crate::config::MODEL_MANAGED_DEFAULT,
-        "Hint must resolve to the managed default model, not a retired tier \
+        crate::config::local_default_model(),
+        "Hint must resolve to the role's local default model, not a retired tier \
          slug from default_model or the parent's model"
     );
 }

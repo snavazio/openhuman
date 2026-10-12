@@ -58,7 +58,10 @@ fn no_tools_when_search_is_off_or_nothing_is_usable() {
     config.search.enabled = Some(false);
     assert!(build_search_tools(&config).is_empty());
 
+    // LOCAL-ONLY FORK: clear the default SearXNG entry so only the managed
+    // provider remains.
     let mut managed_only = Config::default();
+    managed_only.search.providers.clear();
     managed_only.search.providers.insert(
         "exa".into(),
         SearchProviderSettings {

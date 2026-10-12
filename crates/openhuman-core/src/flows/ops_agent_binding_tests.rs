@@ -122,7 +122,10 @@ fn dynamic_agent_ref_is_rejected_during_structural_validation() {
 }
 
 #[tokio::test]
-async fn inference_gate_reports_signed_out_for_dynamic_agent_ref_only_graph() {
+// LOCAL-ONLY FORK: every route (unset, "cloud" or an explicit "openhuman")
+// resolves to the local runtime, which needs no OpenHuman session, so
+// signing out never blocks inference.
+async fn dynamic_agent_ref_only_graph_is_not_blocked_by_sign_in_locally() {
     // Finding C, and it survives the rule above: an `agent` node whose
     // `agent_ref` is `=`-derived means "this graph runs inference" whatever
     // its concrete route resolves to, so it must stay in scope for Layer 1
@@ -171,15 +174,10 @@ async fn inference_gate_reports_signed_out_for_dynamic_agent_ref_only_graph() {
 
     let errors = validate_inference_readiness(&config, &g).await;
     assert!(
-        !errors.is_empty(),
-        "a signed-out session must still be reported even though the only agent node's \
-         agent_ref is dynamic: {errors:?}"
-    );
-    assert!(
-        errors
+        !errors
             .iter()
             .any(|e| e.to_ascii_lowercase().contains("signed out")),
-        "{errors:?}"
+        "a local-only graph with a dynamic agent_ref must not be blocked by sign-in: {errors:?}"
     );
     // `SignedOutTestGuard` restores the prior flag on drop at the end of this
     // scope — no other test observes this override.
@@ -263,27 +261,20 @@ async fn proposal_omits_inference_status_for_tool_call_only_graph() {
     );
 }
 
-/// B45 run-time preflight (design correction, judge finding on live run
-/// 104aab90): since authoring no longer hard-blocks on inference readiness, a
-/// flow whose `agent` node cannot currently reach a working LLM provider can
-/// be created and then RUN. `run_flow_body` must catch that BEFORE invoking
-/// the tinyflows engine, finalizing the run row as `failed` with a clear,
-/// actionable message rather than letting the engine attempt (and fail) real
-/// work, or surface the opaque several-layers-deep "capability error: graph
-/// error: capability error: model error: ... API key not configured for
-/// provider" a mid-run failure produces.
-///
-/// Uses the signed-out seam (`SignedOutTestGuard`) rather than a mock
-/// provider-not-configured backend response: both are classified `Err` by
-/// `evaluate_inference_readiness` and reach the same preflight code path in
-/// `run_flow_body`, and signed-out needs no network/mock server at all
-/// (matching the existing gate tests' no-network convention). The
-/// provider_not_configured class is covered end-to-end by
-/// `probe_readiness_surfaces_api_key_not_configured` (construction) and the
-/// negative-cache test below (through `cached_probe_inference_readiness`).
+/// LOCAL-ONLY FORK: upstream asserted that a signed-out session makes
+/// `flows_run` fail before the engine starts. Every route here resolves to the
+/// local runtime, which needs no OpenHuman session, so a signed-out user's run
+/// must NOT be refused or recorded as a sign-in failure. A scripted model
+/// stands in for the runtime so the test makes no live inference call.
 #[tokio::test]
-async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_ready() {
+async fn flows_run_is_not_blocked_by_sign_in_for_the_local_runtime() {
+    let _inference = crate::inference::inference_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    // A scripted model stands in for the local runtime: no live inference.
+    let _model =
+        crate::inference::provider::factory::test_provider_override::install_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["outline: done"]),
+        ));
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -300,49 +291,36 @@ async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_read
         .await
         .expect("creating (authoring) an agent-node flow must succeed even when signed out");
 
-    let err = flows_run(
+    let run = flows_run(
         &config,
         &created.value.id,
         json!({}),
         serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
-    .await
-    .expect_err("a run whose agent node cannot reach a provider must fail cleanly");
-    assert!(
-        err.to_ascii_lowercase().contains("ai provider"),
-        "error must explain the AI-provider problem: {err}"
-    );
-    assert!(
-        err.to_ascii_lowercase().contains("signed out"),
-        "error must surface the specific reason (signed out): {err}"
-    );
+    .await;
+    if let Err(err) = &run {
+        assert!(
+            !err.to_ascii_lowercase().contains("signed out"),
+            "a local-only run must not be blocked by sign-in: {err}"
+        );
+    }
 
-    // The run row settled `failed` with that same message, and the engine
-    // never ran (no persisted steps) — this is the "no pointless work" half
-    // of the contract, not just "the RPC call returned an error".
+    // The run row must not have been settled as a sign-in failure either.
     let runs = flows_list_runs(&config, &created.value.id, 1)
         .await
         .unwrap()
         .value;
-    let run = runs.first().expect("a run row must exist");
-    assert_eq!(run.status, "failed");
+    let row = runs.first().expect("a run row must exist");
     assert!(
-        run.steps.is_empty(),
-        "the engine must never have executed a step: {:?}",
-        run.steps
+        !row.error
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .contains("signed out"),
+        "the run row must not blame sign-in: {:?}",
+        row.error
     );
-    let run_error = run
-        .error
-        .as_deref()
-        .expect("a failed run must carry an error message");
-    assert!(
-        run_error.to_ascii_lowercase().contains("ai provider"),
-        "the persisted run error must explain the AI-provider problem: {run_error}"
-    );
-
-    // `SignedOutTestGuard` restores the prior flag on drop at the end of this
-    // scope — no other test observes this override.
 }
 
 #[tokio::test]
@@ -394,17 +372,11 @@ async fn claude_agent_flow_readiness_does_not_require_an_openhuman_session() {
         let mut config = test_config(&tmp);
         config.memory_provider = Some(provider.into());
         let errors = validate_inference_readiness(&config, &g).await;
-        if provider == "openhuman" {
-            assert!(
-                errors.iter().any(|e| e.contains("signed out")),
-                "{errors:?}"
-            );
-        } else {
-            assert!(
-                errors.is_empty(),
-                "{provider} must not require a session: {errors:?}"
-            );
-        }
+        // LOCAL-ONLY FORK: "openhuman" falls back to the local runtime too.
+        assert!(
+            errors.is_empty(),
+            "{provider} must not require a session: {errors:?}"
+        );
     }
 }
 
@@ -434,7 +406,10 @@ fn harness_readiness_uses_runtime_role_and_node_override() {
 }
 
 #[tokio::test]
-async fn harness_readiness_checks_session_for_execution_provider() {
+// LOCAL-ONLY FORK: every route (unset, "cloud" or an explicit "openhuman")
+// resolves to the local runtime, which needs no OpenHuman session, so
+// signing out never blocks inference.
+async fn harness_readiness_never_requires_a_session_locally() {
     let _inference = crate::inference::inference_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
     let _model =
@@ -451,7 +426,7 @@ async fn harness_readiness_checks_session_for_execution_provider() {
     }));
     for (runtime, summary, should_reject) in [
         ("ollama:test", "openhuman", false),
-        ("openhuman", "ollama:test", true),
+        ("openhuman", "ollama:test", false),
     ] {
         let tmp = TempDir::new().unwrap();
         let mut config = test_config(&tmp);

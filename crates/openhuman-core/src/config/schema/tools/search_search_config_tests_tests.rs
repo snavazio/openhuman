@@ -10,20 +10,19 @@ fn provider(cfg: &SearchConfig, name: &str) -> Option<SearchProviderSettings> {
 }
 
 #[test]
-fn fresh_defaults_are_managed_exa_and_gemini_with_roles_presentation() {
+// LOCAL-ONLY FORK: fresh installs search only through the self-hosted SearXNG.
+fn fresh_defaults_are_direct_searxng_with_roles_presentation() {
     let cfg = SearchConfig::default();
     assert!(!cfg.needs_migration());
     assert!(cfg.is_enabled());
     assert_eq!(cfg.presentation, SearchPresentation::Roles);
     assert_eq!(
-        provider(&cfg, "exa"),
-        Some(SearchProviderSettings::managed())
+        provider(&cfg, "searxng"),
+        Some(SearchProviderSettings::direct())
     );
-    assert_eq!(
-        provider(&cfg, "gemini"),
-        Some(SearchProviderSettings::managed())
-    );
-    assert_eq!(cfg.providers.len(), 2);
+    assert_eq!(provider(&cfg, "exa"), None);
+    assert_eq!(provider(&cfg, "gemini"), None);
+    assert_eq!(cfg.providers.len(), 1);
     assert!(cfg.roles.is_empty());
 }
 
@@ -294,6 +293,10 @@ fn managed_presentation_provider_is_cleared() {
 #[test]
 fn route_is_direct_for_providers_that_cannot_be_managed() {
     let mut cfg = SearchConfig::default();
+    // LOCAL-ONLY FORK: exa is not a default provider; add it as managed to
+    // exercise the route logic.
+    cfg.providers
+        .insert("exa".into(), SearchProviderSettings::managed());
     cfg.providers
         .insert("brave".into(), SearchProviderSettings::managed());
     assert_eq!(cfg.route("brave"), SearchRoute::Direct);
@@ -312,7 +315,8 @@ fn enabled_provider_names_skip_disabled_entries() {
         },
     );
     let names: Vec<_> = cfg.enabled_provider_names().into_iter().collect();
-    assert_eq!(names, vec!["exa".to_string(), "gemini".to_string()]);
+    // LOCAL-ONLY FORK: the only default provider is searxng.
+    assert_eq!(names, vec!["searxng".to_string()]);
 }
 
 #[test]

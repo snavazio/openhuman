@@ -57,7 +57,7 @@ async fn run_builder_gates_does_not_reject_when_signed_out() {
 }
 
 #[tokio::test]
-async fn proposal_surfaces_signed_out_inference_status() {
+async fn proposal_does_not_report_signed_out_for_the_local_runtime() {
     // The proposal still WARNS about the signed-out state (advisory, never a
     // rejection) so the UI can render a "sign in" nudge alongside the built
     // workflow.
@@ -87,13 +87,13 @@ async fn proposal_surfaces_signed_out_inference_status() {
     .await
     .expect("a signed-out session must NOT block proposing the graph");
 
-    assert_eq!(payload["inference_status"], json!("signed_out"));
-    let message = payload["inference_message"]
-        .as_str()
-        .expect("a non-ready status must carry inference_message");
+    // LOCAL-ONLY FORK: the agent node runs on the local runtime, which needs
+    // no OpenHuman session, so being signed out is not a readiness problem.
+    assert_ne!(payload["inference_status"], json!("signed_out"));
+    let message = payload["inference_message"].as_str().unwrap_or_default();
     assert!(
-        message.to_ascii_lowercase().contains("signed out"),
-        "message must tell the user they are signed out: {message}"
+        !message.to_ascii_lowercase().contains("signed out"),
+        "a local-only proposal must not nag about sign-in: {message}"
     );
     // Under cfg(test), `SignedOutTestGuard` stores the override by Tokio
     // runtime ID and restores it on drop, so parallel async tests cannot

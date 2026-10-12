@@ -13,6 +13,18 @@ fn sign_in(config: &Config) {
     crate::security::credentials::api_key::store_api_key(config, "backend-sentinel").unwrap();
 }
 
+/// LOCAL-ONLY FORK: fresh installs only carry SearXNG; tests of the managed
+/// exa/gemini routing select those providers explicitly.
+fn with_managed_exa_and_gemini(config: &mut Config) {
+    select(
+        config,
+        &[
+            ("exa", SearchProviderSettings::managed()),
+            ("gemini", SearchProviderSettings::managed()),
+        ],
+    );
+}
+
 fn select(config: &mut Config, providers: &[(&str, SearchProviderSettings)]) {
     config.search.providers = providers
         .iter()
@@ -21,9 +33,10 @@ fn select(config: &mut Config, providers: &[(&str, SearchProviderSettings)]) {
 }
 
 #[test]
-fn signed_in_defaults_route_exa_and_gemini_through_the_backend() {
+fn signed_in_managed_exa_and_gemini_route_through_the_backend() {
     let dir = tempfile::tempdir().unwrap();
-    let config = config_in(dir.path());
+    let mut config = config_in(dir.path());
+    with_managed_exa_and_gemini(&mut config);
     sign_in(&config);
     let payload = module_config(&config);
     for name in ["exa", "gemini"] {
@@ -45,7 +58,8 @@ fn signed_in_defaults_route_exa_and_gemini_through_the_backend() {
 #[test]
 fn signed_out_managed_providers_are_disabled() {
     let dir = tempfile::tempdir().unwrap();
-    let config = config_in(dir.path());
+    let mut config = config_in(dir.path());
+    with_managed_exa_and_gemini(&mut config);
     let payload = module_config(&config);
     assert!(!payload.providers["exa"].enabled);
     assert!(!payload.providers["gemini"].enabled);
@@ -75,6 +89,7 @@ fn direct_provider_config_keeps_limits_and_private_key() {
 fn role_tools_follow_provider_selection() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
+    with_managed_exa_and_gemini(&mut config);
     sign_in(&config);
     let names: Vec<String> = configured_tool_specs(&config)
         .into_iter()
@@ -133,6 +148,7 @@ fn all_tools_presentation_maps_through() {
 fn gemini_deep_research_uses_the_direct_key_beside_managed_gemini() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
+    with_managed_exa_and_gemini(&mut config);
     sign_in(&config);
     config.search.gemini.api_key = Some("test-secret".into());
     let payload = module_config(&config);
@@ -146,7 +162,8 @@ fn gemini_deep_research_uses_the_direct_key_beside_managed_gemini() {
 #[test]
 fn gemini_deep_research_is_off_without_a_key() {
     let dir = tempfile::tempdir().unwrap();
-    let config = config_in(dir.path());
+    let mut config = config_in(dir.path());
+    with_managed_exa_and_gemini(&mut config);
     sign_in(&config);
     assert!(!module_config(&config).providers["gemini_deep_research"].enabled);
 }

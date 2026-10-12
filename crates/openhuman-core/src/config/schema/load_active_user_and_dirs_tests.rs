@@ -452,7 +452,9 @@ fn searxng_timeout_seconds_alias_deserializes() {
 }
 
 #[test]
-fn apply_env_overrides_picks_up_sentry_dsn() {
+/// LOCAL-ONLY FORK: Sentry DSN env vars are ignored; no crash reporter is ever
+/// configured, whichever variable is set.
+fn apply_env_overrides_ignores_sentry_dsn() {
     let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
@@ -460,15 +462,12 @@ fn apply_env_overrides_picks_up_sentry_dsn() {
         std::env::set_var("OPENHUMAN_SENTRY_DSN", "https://token@sentry.io/1");
     }
     cfg.apply_env_overrides();
-    assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://token@sentry.io/1")
-    );
+    assert_eq!(cfg.observability.sentry_dsn, None);
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
 }
 
 #[test]
-fn apply_env_overrides_prefers_core_sentry_dsn_when_both_set() {
+fn apply_env_overrides_ignores_both_sentry_dsn_vars() {
     let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
@@ -478,15 +477,14 @@ fn apply_env_overrides_prefers_core_sentry_dsn_when_both_set() {
     }
     cfg.apply_env_overrides();
     assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://new@sentry.io/2"),
-        "namespaced var must win over the legacy unprefixed one"
+        cfg.observability.sentry_dsn, None,
+        "neither Sentry variable may configure a crash reporter"
     );
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
 }
 
 #[test]
-fn apply_env_overrides_picks_up_core_sentry_dsn_alone() {
+fn apply_env_overrides_ignores_core_sentry_dsn_alone() {
     let _g = env_lock();
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
     let mut cfg = Config::default();
@@ -494,10 +492,7 @@ fn apply_env_overrides_picks_up_core_sentry_dsn_alone() {
         std::env::set_var("OPENHUMAN_CORE_SENTRY_DSN", "https://token@sentry.io/3");
     }
     cfg.apply_env_overrides();
-    assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://token@sentry.io/3")
-    );
+    assert_eq!(cfg.observability.sentry_dsn, None);
     clear_env(&["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"]);
 }
 
@@ -645,11 +640,10 @@ fn env_overlay_toggles_agent_tracing_capture_content() {
     // top of the file) so a concurrent test's env mutation can't race in.
     let _g = env_lock();
 
-    // ON by default since #4498 (`default_capture_content() == true` — traces
-    // without content aren't actionable in Langfuse). This assertion was left
-    // asserting the pre-#4498 `false` default and is corrected here.
+    // LOCAL-ONLY FORK: OFF by default (`default_capture_content() == false`);
+    // the env overlay can still turn it on and off.
     let mut cfg = Config::default();
-    assert!(cfg.observability.agent_tracing.capture_content);
+    assert!(!cfg.observability.agent_tracing.capture_content);
 
     // An explicit falsy env value turns it off.
     cfg.apply_env_overlay_with(

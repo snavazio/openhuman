@@ -14,9 +14,13 @@ fn local_tracing_exporter_is_off_by_default() {
 }
 
 #[test]
-fn observability_default_shares_usage_but_keeps_local_exporter_off() {
+fn observability_default_shares_nothing_and_keeps_local_exporter_off() {
+    // LOCAL-ONLY FORK: usage-data sharing is off by default.
     let obs = ObservabilityConfig::default();
-    assert!(obs.share_usage_data, "usage-data sharing is on by default");
+    assert!(
+        !obs.share_usage_data,
+        "usage-data sharing is off by default"
+    );
     assert!(!obs.agent_tracing.enabled, "local exporter stays opt-in");
 }
 

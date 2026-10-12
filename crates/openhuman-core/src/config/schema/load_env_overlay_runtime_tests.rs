@@ -1,27 +1,18 @@
 use super::*;
 #[test]
-fn env_overlay_sentry_dsn_trims_and_ignores_blank() {
+// LOCAL-ONLY FORK: the overlay ignores every Sentry DSN variable.
+fn env_overlay_ignores_sentry_dsn() {
     let mut cfg = Config::default();
     cfg.observability.sentry_dsn = None;
 
     cfg.apply_env_overlay_with(
         &HashMapEnv::new().with("OPENHUMAN_SENTRY_DSN", "  https://t@sentry.io/42  "),
     );
-    assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://t@sentry.io/42")
-    );
-
-    // Blank value — ignored (previous DSN retained).
-    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_SENTRY_DSN", "   "));
-    assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://t@sentry.io/42")
-    );
+    assert_eq!(cfg.observability.sentry_dsn, None);
 }
 
 #[test]
-fn env_overlay_prefers_namespaced_core_sentry_dsn() {
+fn env_overlay_ignores_both_sentry_dsn_vars() {
     let mut cfg = Config::default();
     cfg.observability.sentry_dsn = None;
 
@@ -31,24 +22,20 @@ fn env_overlay_prefers_namespaced_core_sentry_dsn() {
             .with("OPENHUMAN_CORE_SENTRY_DSN", "https://new@sentry.io/2"),
     );
     assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://new@sentry.io/2"),
-        "OPENHUMAN_CORE_SENTRY_DSN must win over OPENHUMAN_SENTRY_DSN"
+        cfg.observability.sentry_dsn, None,
+        "neither Sentry variable may configure a crash reporter"
     );
 }
 
 #[test]
-fn env_overlay_namespaced_core_sentry_dsn_works_alone() {
+fn env_overlay_ignores_core_sentry_dsn_alone() {
     let mut cfg = Config::default();
     cfg.observability.sentry_dsn = None;
 
     cfg.apply_env_overlay_with(
         &HashMapEnv::new().with("OPENHUMAN_CORE_SENTRY_DSN", "https://token@sentry.io/3"),
     );
-    assert_eq!(
-        cfg.observability.sentry_dsn.as_deref(),
-        Some("https://token@sentry.io/3")
-    );
+    assert_eq!(cfg.observability.sentry_dsn, None);
 }
 
 #[test]

@@ -349,10 +349,11 @@ async fn load_or_init_falls_back_to_defaults_when_backup_also_corrupted() {
 
     let config = load_or_init_for_workspace(root).await;
 
-    // Config::default() sets default_model = Some("reasoning-v1").
+    // LOCAL-ONLY FORK: compare against the actual default (`default_model` is
+    // `None` in this build) rather than the upstream managed default model.
     assert_eq!(
-        config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
+        config.default_model,
+        Config::default().default_model,
         "must fall back to defaults when backup is also corrupted"
     );
 
@@ -382,9 +383,10 @@ async fn load_or_init_falls_back_to_defaults_when_no_backup() {
 
     let config = load_or_init_for_workspace(root).await;
 
+    // LOCAL-ONLY FORK: compare against the actual default (`None` here).
     assert_eq!(
-        config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
+        config.default_model,
+        Config::default().default_model,
         "must fall back to defaults when no backup exists"
     );
 
@@ -596,9 +598,11 @@ async fn load_or_init_recovers_from_non_utf8_config() {
 
     let config = load_or_init_for_workspace(root).await;
 
-    // Should have loaded defaults (not crashed).
-    assert!(
-        config.default_model.is_some(),
+    // Should have loaded defaults (not crashed). LOCAL-ONLY FORK: the default
+    // `default_model` is `None`, so compare against the default itself.
+    assert_eq!(
+        config.default_model,
+        Config::default().default_model,
         "must load defaults from non-UTF-8 config"
     );
 
