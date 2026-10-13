@@ -42,7 +42,9 @@ impl CoreLink for FakeCore {
                 Ok(json!({ "result": {} }))
             }
             // Wrapped the way the real core wraps results.
-            AUTH_GET_STATE => Ok(json!({ "result": self.state.lock().unwrap().clone(), "logs": [] })),
+            AUTH_GET_STATE => {
+                Ok(json!({ "result": self.state.lock().unwrap().clone(), "logs": [] }))
+            }
             other => Err(format!("unexpected method {other}")),
         }
     }
@@ -86,7 +88,10 @@ async fn refuses_a_cloud_session_jwt_without_calling_the_core() {
     let core = FakeCore::new();
     let manager = LocalSessionManager::new(Arc::clone(&core));
     let err = manager
-        .store_session_token("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.c2lnbmF0dXJl", Some(local_user()))
+        .store_session_token(
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.c2lnbmF0dXJl",
+            Some(local_user()),
+        )
         .await
         .expect_err("a JWT must be refused");
     assert!(err.to_string().starts_with("BACKEND: "), "{err}");
@@ -100,7 +105,9 @@ async fn requires_a_token_and_a_user_payload() {
     assert!(empty.unwrap_err().to_string().starts_with("INVALID: "));
     let no_user = manager.store_session_token(LOCAL_TOKEN, None).await;
     assert!(no_user.unwrap_err().to_string().starts_with("INVALID: "));
-    let empty_user = manager.store_session_token(LOCAL_TOKEN, Some(json!({}))).await;
+    let empty_user = manager
+        .store_session_token(LOCAL_TOKEN, Some(json!({})))
+        .await;
     assert!(empty_user.unwrap_err().to_string().starts_with("INVALID: "));
 }
 
@@ -108,8 +115,14 @@ async fn requires_a_token_and_a_user_payload() {
 async fn login_with_token_is_disabled() {
     let core = FakeCore::new();
     let manager = LocalSessionManager::new(Arc::clone(&core));
-    let err = manager.login_with_token("one-time-token").await.unwrap_err();
-    assert_eq!(err, SessionError::CloudDisabled(CLOUD_SIGN_IN_DISABLED.to_string()));
+    let err = manager
+        .login_with_token("one-time-token")
+        .await
+        .unwrap_err();
+    assert_eq!(
+        err,
+        SessionError::CloudDisabled(CLOUD_SIGN_IN_DISABLED.to_string())
+    );
     assert!(core.calls().is_empty());
 }
 

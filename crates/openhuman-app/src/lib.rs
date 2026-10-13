@@ -3426,10 +3426,6 @@ pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
 // Sentry release / environment resolution (Tauri shell — desktop only)
 // ---------------------------------------------------------------------------
 
-
-
-
-
 /// Returns the macOS product version string (e.g. `"14.5"`) by reading
 /// `sw_vers -productVersion`. Returns `None` on non-macOS targets or when
 /// the command is unavailable. Used to tag Sentry events and startup logs

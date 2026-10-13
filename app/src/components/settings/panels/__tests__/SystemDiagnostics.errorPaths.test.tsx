@@ -169,5 +169,4 @@ describe('<SystemDiagnostics /> failure paths', () => {
     fireEvent.click(button);
     await waitFor(() => expect(screen.queryByText('transient')).not.toBeInTheDocument());
   });
-
 });

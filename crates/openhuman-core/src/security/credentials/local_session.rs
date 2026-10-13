@@ -134,7 +134,9 @@ impl<L: CoreLink> LocalSessionManager<L> {
     /// Cloud login-token exchange: not available in a local-only build.
     pub async fn login_with_token(&self, _token: &str) -> Result<SessionState, SessionError> {
         log::info!("{LOG_PREFIX} refused login-token exchange: {CLOUD_SIGN_IN_DISABLED}");
-        Err(SessionError::CloudDisabled(CLOUD_SIGN_IN_DISABLED.to_string()))
+        Err(SessionError::CloudDisabled(
+            CLOUD_SIGN_IN_DISABLED.to_string(),
+        ))
     }
 
     /// Install the offline local session token with its user payload. Any
@@ -150,7 +152,9 @@ impl<L: CoreLink> LocalSessionManager<L> {
         }
         if !is_local_session_token(token) {
             log::info!("{LOG_PREFIX} refused non-local credential: {CLOUD_SIGN_IN_DISABLED}");
-            return Err(SessionError::CloudDisabled(CLOUD_SIGN_IN_DISABLED.to_string()));
+            return Err(SessionError::CloudDisabled(
+                CLOUD_SIGN_IN_DISABLED.to_string(),
+            ));
         }
         let user = user
             .filter(|u| u.as_object().is_some_and(|m| !m.is_empty()))
@@ -190,7 +194,9 @@ impl<L: CoreLink> LocalSessionManager<L> {
             .await
             .map_err(SessionError::Core)?;
         serde_json::from_value(unwrap_envelope(&value).clone()).map_err(|e| {
-            SessionError::Core(format!("{AUTH_GET_STATE} returned an unexpected shape: {e}"))
+            SessionError::Core(format!(
+                "{AUTH_GET_STATE} returned an unexpected shape: {e}"
+            ))
         })
     }
 

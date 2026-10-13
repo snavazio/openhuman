@@ -16,7 +16,10 @@ fn maps_the_path_roots_verbatim() {
 fn falls_back_to_default_model_when_none_is_configured() {
     let mut c = base();
     c.default_model = None;
-    assert_eq!(session_config_from(&c).model, crate::config::local_default_model());
+    assert_eq!(
+        session_config_from(&c).model,
+        crate::config::local_default_model()
+    );
 
     c.default_model = Some("some-model".into());
     assert_eq!(session_config_from(&c).model, "some-model");

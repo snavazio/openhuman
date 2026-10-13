@@ -72,7 +72,8 @@ fn bundled_releases_dir() -> Option<PathBuf> {
     // (common under a shared `~/projects/...` checkout), and the home directory
     // is the one location that is reliably clean. Ranked after the explicit env
     // var but before the folder beside the executable.
-    let home_bundle = dirs::home_dir().map(|home| home.join(".openhuman").join(BUNDLED_MODULES_DIR));
+    let home_bundle =
+        dirs::home_dir().map(|home| home.join(".openhuman").join(BUNDLED_MODULES_DIR));
     resolve_bundled_dir(
         BUNDLED_RELEASES.get().cloned(),
         std::env::var_os(BUNDLED_MODULES_ENV)

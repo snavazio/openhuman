@@ -77,4 +77,3 @@ pub fn install(app: &AppHandle<AppRuntime>, desktop: CoreProcessHandle) {
         }
     });
 }
-

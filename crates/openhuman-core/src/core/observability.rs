@@ -2466,7 +2466,6 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
 /// pick out reported errors.
 pub const REPORT_ERROR_TRACING_TARGET: &str = "openhuman::observability::report_error";
 
-
 pub(crate) fn report_error_message(
     message: &str,
     domain: &str,

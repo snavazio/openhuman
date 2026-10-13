@@ -400,4 +400,3 @@ fn expected_kind_ignores_byo_errors_with_no_code() {
         Some(ExpectedErrorKind::BackendErrorCodeOwned)
     );
 }
-

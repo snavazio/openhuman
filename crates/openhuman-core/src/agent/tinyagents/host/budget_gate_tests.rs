@@ -24,7 +24,10 @@ fn seeds_the_attributed_model_from_config() {
     let mut unpinned = Config::default();
     unpinned.default_model = None;
     let gate = OpenHumanBudgetGate::new(Arc::new(unpinned));
-    assert_eq!(gate.attributed_model(), crate::config::local_default_model());
+    assert_eq!(
+        gate.attributed_model(),
+        crate::config::local_default_model()
+    );
 }
 
 #[tokio::test]

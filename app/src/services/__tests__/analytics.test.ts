@@ -36,7 +36,6 @@ describe('analytics (local-only no-op)', () => {
     expect(() => stop()).not.toThrow();
   });
 
-
   it('keeps the event allowlist so typed call sites still compile', () => {
     expect(ALLOWED_EVENTS.has('ui_click')).toBe(true);
   });

@@ -43,4 +43,3 @@ async fn structured_rpc_error_envelope_passes_through_generic_dispatch() {
     );
     assert!(message.contains("thread-ghost"));
 }
-

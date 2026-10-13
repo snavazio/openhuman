@@ -21,9 +21,7 @@ use tinyagents_harness::config::{
     MemoryLimits, RequiredOutput, SessionConfig, ToolConfig, ToolDispatcher, TurnConfig,
 };
 
-use crate::config::{
-    AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract,
-};
+use crate::config::{AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract};
 
 /// Translates OpenHuman's free-form `agent.tool_dispatcher` string into the
 /// crate enum.

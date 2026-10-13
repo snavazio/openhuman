@@ -146,4 +146,3 @@ fn ollama_cloud_internal_500_reraise_routes_through_expected_path() {
         Some(ExpectedErrorKind::TransientUpstreamHttp)
     );
 }
-

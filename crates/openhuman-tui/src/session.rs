@@ -28,7 +28,8 @@ static MANAGER: OnceLock<Arc<LocalSessionManager<InProcessLink>>> = OnceLock::ne
 /// use. A TUI process hosts exactly one runtime, so later callers get the
 /// same manager regardless of the handle they pass.
 pub fn session_manager(runtime: &Arc<CoreRuntime>) -> Arc<LocalSessionManager<InProcessLink>> {
-    Arc::clone(MANAGER.get_or_init(|| {
-        LocalSessionManager::new(Arc::new(InProcessLink(Arc::clone(runtime))))
-    }))
+    Arc::clone(
+        MANAGER
+            .get_or_init(|| LocalSessionManager::new(Arc::new(InProcessLink(Arc::clone(runtime))))),
+    )
 }
