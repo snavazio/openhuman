@@ -30,7 +30,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' data: blob: ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:*; script-src 'self' 'wasm-unsafe-eval' tauri: tauri://localhost; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:* http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* data: blob:; frame-src 'self' data: blob:"
+      "csp": "default-src 'self' 'unsafe-inline' data: blob: ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:* https://evo-x2u.tailf93414.ts.net; script-src 'self' 'wasm-unsafe-eval' tauri: tauri://localhost; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:* http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:* https://evo-x2u.tailf93414.ts.net ws://127.0.0.1:* ws://localhost:* wss://evo-x2u.tailf93414.ts.net data: blob:; frame-src 'self' data: blob:"
     },
     "macOSPrivateApi": true
   },
