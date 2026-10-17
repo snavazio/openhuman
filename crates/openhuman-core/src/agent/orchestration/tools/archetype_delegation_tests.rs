@@ -230,5 +230,5 @@ async fn analyze_image_without_prompt_uses_the_default_describe_prompt() {
             "analyze_image must default its prompt, got: {out}"
         );
     }
-    assert!(DEFAULT_ANALYZE_IMAGE_PROMPT.contains("on-screen text"));
+    assert!(DEFAULT_ANALYZE_IMAGE_PROMPT.contains("transcribe every"));
 }

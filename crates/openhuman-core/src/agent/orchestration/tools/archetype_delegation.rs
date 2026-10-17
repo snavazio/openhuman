@@ -133,8 +133,9 @@ impl Tool for ArchetypeDelegationTool {
 const ANALYZE_IMAGE_TOOL: &str = "analyze_image";
 
 /// Task used when `analyze_image` is called without a prompt.
-const DEFAULT_ANALYZE_IMAGE_PROMPT: &str = "Describe what is shown in detail, including any \
-on-screen text, people, objects and what is happening.";
+const DEFAULT_ANALYZE_IMAGE_PROMPT: &str = "For each image in turn, first transcribe every \
+piece of legible text exactly as shown (numbers, prices, addresses, names, captions, on-screen UI \
+text), then describe the people, objects and what is happening.";
 
 pub(crate) async fn execute_archetype_delegation(
     agent_id: &str,

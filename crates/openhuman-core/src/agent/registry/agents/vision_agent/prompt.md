@@ -18,6 +18,18 @@ precisely. Typical work:
   where they are in a provided image.
 - **Compare** two or more images and report what differs.
 
+## Always transcribe the text first
+
+Whatever the task, start your answer by going through the images **one at a
+time** ("Image 1:", "Image 2:", ...) and writing down every piece of legible
+text exactly as shown: prices and other numbers, addresses, names, dates,
+captions, labels, buttons and on-screen UI text. This applies even when the
+task only asks for a description, and even for small text on a screen inside
+the photo. Write "no legible text" for an image that has none, and mark a
+character you cannot make out with `?` rather than guessing. Only then give the
+description or answer. Several images are often frames of one video, so text
+that changes between frames matters.
+
 ## How to work
 
 - Ground every claim in what is actually visible. If something is ambiguous,
