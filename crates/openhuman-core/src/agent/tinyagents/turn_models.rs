@@ -424,6 +424,23 @@ impl TurnModelSource {
                 .profile()
                 .and_then(|profile| profile.max_input_tokens);
         }
+        // LOCAL-ONLY FORK: a `[[model_registry]]` entry's `context_window` is
+        // the operator's statement of what the server actually runs with
+        // (llama.cpp `-c`), so it beats the built-in family hint. Gemma 3 is
+        // hinted at 8,192 while evo-x2 serves 16,384; at 8k the trim evicted a
+        // vision sub-agent's whole image message (8 video frames x 1,200).
+        if let Some(window) = self
+            .crate_native
+            .as_ref()
+            .and_then(|source| registry_context_window(&source.config, model))
+        {
+            tracing::debug!(
+                model,
+                context_window = window,
+                "[turn_models] context window from model_registry"
+            );
+            return Some(window);
+        }
         let provider_string = self.crate_native.as_ref().map(|source| {
             source.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&source.role, &source.config)
@@ -603,6 +620,17 @@ impl TurnModelSource {
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
+}
+
+/// The operator-configured `context_window` for `model` in
+/// `config.model_registry` (matched by id, case-insensitively), when set.
+fn registry_context_window(config: &crate::config::Config, model: &str) -> Option<u64> {
+    let model = model.trim();
+    config
+        .model_registry
+        .iter()
+        .find(|entry| entry.id.eq_ignore_ascii_case(model) && entry.context_window > 0)
+        .map(|entry| u64::from(entry.context_window))
 }
 
 #[cfg(test)]

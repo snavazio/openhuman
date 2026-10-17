@@ -340,3 +340,35 @@ fn custom_provider_turn_vision_follows_the_model_registry() {
         .expect("custom provider turn models build");
     assert!(vision.supports_vision());
 }
+
+#[tokio::test]
+async fn model_registry_context_window_beats_the_family_hint() {
+    // Gemma 3 is hinted at 8,192 tokens; a registry entry saying the server
+    // runs 16,384 must win, or the trim drops a vision turn's images.
+    let mut config = crate::config::Config::default();
+    config.vision_provider = Some("evo-small:gemma3-4b".to_string());
+    config
+        .model_registry
+        .push(crate::config::schema::ModelRegistryEntry {
+            id: "gemma3-4b".to_string(),
+            provider: "evo-small".to_string(),
+            context_window: 16_384,
+            vision: true,
+            ..Default::default()
+        });
+    let source = TurnModelSource::new_crate_native("vision", Arc::new(config));
+    assert_eq!(
+        source.effective_context_window("gemma3-4b").await,
+        Some(16_384)
+    );
+    assert_eq!(
+        source.effective_context_window("GEMMA3-4B").await,
+        Some(16_384)
+    );
+    let unlisted =
+        TurnModelSource::new_crate_native("vision", Arc::new(crate::config::Config::default()));
+    assert_ne!(
+        unlisted.effective_context_window("gemma3-4b").await,
+        Some(16_384)
+    );
+}
