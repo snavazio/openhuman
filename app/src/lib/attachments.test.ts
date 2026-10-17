@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as sttClient from '../features/human/voice/sttClient';
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   type Attachment,
   ATTACHMENT_MAX_FILE_SIZE_BYTES,
   ATTACHMENT_MAX_IMAGE_SIZE_BYTES,
   ATTACHMENT_MAX_IMAGES,
+  ATTACHMENT_MAX_TRANSCRIBE_BYTES,
   ATTACHMENT_MAX_VIDEO_SIZE_BYTES,
   attachmentKindForMime,
   buildMessageWithAttachments,
+  encodeWav16,
   extractVideoFrames,
   fileToDataUri,
   formatFileSize,
@@ -16,9 +19,14 @@ import {
   isAllowedMimeType,
   isVideoMimeType,
   parseMessageImages,
+  resolveVideoTranscripts,
+  speechAudioExtractor,
+  startVideoTranscript,
+  transcribeTimeoutMs,
   validateAndReadFile,
   VIDEO_FRAME_COUNT,
   videoFrameExtractor,
+  videoTranscriber,
 } from './attachments';
 
 function makeFile(name: string, type: string, size = 1024): File {
@@ -511,5 +519,107 @@ describe('formatFileSize', () => {
 
   it('formats megabytes', () => {
     expect(formatFileSize(2 * 1024 * 1024)).toBe('2.0 MB');
+  });
+});
+
+// LOCAL-ONLY FORK: a video's spoken audio is transcribed in the background and
+// handed to the agent as text alongside its frames.
+describe('video transcripts', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('starts a transcript when a video is attached and renders it for the agent', async () => {
+    vi.spyOn(videoFrameExtractor, 'extract').mockResolvedValue(['data:image/jpeg;base64,f1']);
+    const spy = vi
+      .spyOn(videoTranscriber, 'transcribe')
+      .mockResolvedValue('  hello from the clip  ');
+    const file = makeFile('clip.mp4', 'video/mp4', 4096);
+    const result = await validateAndReadFile(file, 0, 0, true);
+    expect('attachment' in result).toBe(true);
+    if (!('attachment' in result)) return;
+    expect(spy).toHaveBeenCalledWith(file);
+    await expect(result.attachment.transcript).resolves.toEqual({ text: 'hello from the clip' });
+    await expect(resolveVideoTranscripts([result.attachment])).resolves.toBe(
+      '[Transcript of clip.mp4]\nhello from the clip'
+    );
+  });
+
+  it('turns a transcription failure into a note instead of rejecting', async () => {
+    vi.spyOn(videoTranscriber, 'transcribe').mockRejectedValue(new Error('stt down'));
+    const t = await startVideoTranscript(makeFile('clip.mp4', 'video/mp4', 8));
+    expect(t).toEqual({ note: 'the video could not be transcribed (stt down)' });
+  });
+
+  it('notes silence and skips videos too large to transcribe', async () => {
+    vi.spyOn(videoTranscriber, 'transcribe').mockResolvedValue('   ');
+    await expect(startVideoTranscript(makeFile('quiet.mp4', 'video/mp4', 8))).resolves.toEqual({
+      note: 'no speech was detected in the video',
+    });
+    const spy = vi.spyOn(videoTranscriber, 'transcribe');
+    spy.mockClear();
+    const big = makeFile('big.mp4', 'video/mp4', 8);
+    Object.defineProperty(big, 'size', { value: ATTACHMENT_MAX_TRANSCRIBE_BYTES + 1 });
+    await expect(startVideoTranscript(big)).resolves.toEqual({
+      note: 'the video is too large to transcribe (over 40 MB)',
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty string when there are no videos', async () => {
+    await expect(resolveVideoTranscripts([makeAttachment()])).resolves.toBe('');
+  });
+
+  it('uploads only the extracted speech audio, with a budget sized to it', async () => {
+    const wav = new Blob([new Uint8Array(64_000)], { type: 'audio/wav' });
+    vi.spyOn(speechAudioExtractor, 'extract').mockResolvedValue(wav);
+    const stt = vi.spyOn(sttClient, 'transcribeWithFactory').mockResolvedValue('hi');
+    await expect(
+      videoTranscriber.transcribe(makeFile('Screen Rec.mp4', 'video/mp4', 9_000_000))
+    ).resolves.toBe('hi');
+    expect(stt).toHaveBeenCalledWith(wav, {
+      mimeType: 'audio/wav',
+      fileName: 'Screen Rec.wav',
+      timeoutMs: transcribeTimeoutMs(64_000),
+    });
+  });
+
+  it('sends the whole clip when the browser has no audio decoder', async () => {
+    vi.spyOn(speechAudioExtractor, 'extract').mockResolvedValue(null);
+    const stt = vi.spyOn(sttClient, 'transcribeWithFactory').mockResolvedValue('hi');
+    const file = makeFile('clip.mp4', 'video/mp4', 4096);
+    await videoTranscriber.transcribe(file);
+    expect(stt).toHaveBeenCalledWith(file, {
+      mimeType: 'video/mp4',
+      fileName: 'clip.mp4',
+      timeoutMs: transcribeTimeoutMs(4096),
+    });
+  });
+
+  it('falls back to the whole clip when the browser cannot decode its audio', async () => {
+    vi.spyOn(speechAudioExtractor, 'extract').mockRejectedValue(new Error('EncodingError'));
+    const stt = vi.spyOn(sttClient, 'transcribeWithFactory').mockResolvedValue('hi');
+    const file = makeFile('clip.mp4', 'video/mp4', 8);
+    await expect(videoTranscriber.transcribe(file)).resolves.toBe('hi');
+    expect(stt).toHaveBeenCalledWith(file, {
+      mimeType: 'video/mp4',
+      fileName: 'clip.mp4',
+      timeoutMs: transcribeTimeoutMs(8),
+    });
+  });
+
+  it('grows the transcription budget with the upload size', () => {
+    expect(transcribeTimeoutMs(0)).toBe(30_000);
+    // 3 MB of audio is 4 MB of base64: 200s at 20 KB/s on top of the base 30s.
+    expect(transcribeTimeoutMs(3_000_000)).toBe(230_000);
+  });
+
+  it('encodes mono 16-bit PCM WAV', async () => {
+    const wav = encodeWav16(new Float32Array([0, 1, -1]), 16_000);
+    expect(wav.type).toBe('audio/wav');
+    const view = new DataView(await wav.arrayBuffer());
+    expect(view.byteLength).toBe(44 + 6);
+    expect(view.getUint16(22, true)).toBe(1);
+    expect(view.getUint32(24, true)).toBe(16_000);
+    expect(view.getInt16(46, true)).toBe(0x7fff);
+    expect(view.getInt16(48, true)).toBe(-0x8000);
   });
 });

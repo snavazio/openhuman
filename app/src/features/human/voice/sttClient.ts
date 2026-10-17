@@ -141,6 +141,8 @@ interface FactoryTranscribeOptions {
   /** Defaults derived from the recorded blob. */
   mimeType?: string;
   fileName?: string;
+  /** Per-call RPC budget; large uploads over a slow link need more than 30s. */
+  timeoutMs?: number;
 }
 
 interface FactoryTranscribeResult {
@@ -191,6 +193,7 @@ export async function transcribeWithFactory(
     result = await callCoreRpc<FactoryTranscribeResult>({
       method: 'openhuman.voice_stt_dispatch',
       params,
+      timeoutMs: opts.timeoutMs,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

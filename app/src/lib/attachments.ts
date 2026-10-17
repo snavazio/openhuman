@@ -8,6 +8,8 @@
  */
 import debugFactory from 'debug';
 
+import { transcribeWithFactory } from '../features/human/voice/sttClient';
+
 const debug = debugFactory('chat:attachments');
 
 const ALLOWED_IMAGE_MIME_TYPES = [
@@ -70,15 +72,20 @@ const EXTRACTABLE_FILE_MIME_TYPES = ['application/pdf', 'text/plain', 'text/mark
 // `multimodal.max_images` (crates/openhuman-core/src/config/schema/tools/multimodal.rs) — the
 // core counts every `[IMAGE:]` marker (frames included) and errors on overflow,
 // so the composer must budget images + video frames against this single cap.
-export const ATTACHMENT_MAX_IMAGES = 4;
+// LOCAL-ONLY FORK: 12, matching `[multimodal] max_images = 12` in the evo-x2
+// profile, so one video's VIDEO_FRAME_COUNT frames fit beside a few images.
+export const ATTACHMENT_MAX_IMAGES = 12;
 export const ATTACHMENT_MAX_FILES = 4;
 export const ATTACHMENT_MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ATTACHMENT_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
 export const ATTACHMENT_MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
-// Still frames sampled from a video and forwarded as `[IMAGE:]` markers. 2 keeps
-// a clip within the 4-marker budget alongside other attachments (e.g. 1 video +
-// 2 images, or 2 videos).
-export const VIDEO_FRAME_COUNT = 2;
+// Still frames sampled from a video and forwarded as `[IMAGE:]` markers.
+// LOCAL-ONLY FORK: 8 (was 2) so the vision model sees the clip's progression,
+// not just two moments; 1 video + 4 images fits the 12-marker budget.
+export const VIDEO_FRAME_COUNT = 8;
+// Longest side of a sampled frame. Vision models downscale to roughly this
+// anyway (Gemma 3: 896 px), and smaller frames keep a slow upload short.
+export const VIDEO_FRAME_MAX_EDGE = 1024;
 
 export interface Attachment {
   id: string;
@@ -94,7 +101,15 @@ export interface Attachment {
   // expanded into `[IMAGE:]` markers at send time. The chip itself shows a
   // single poster (the first frame) via `previewUri`.
   frames?: string[];
+  // LOCAL-ONLY FORK: only set for `kind: 'video'`. The clip's spoken audio,
+  // transcribed in the background from the moment it is attached (see
+  // `startVideoTranscript`). Never rejects; resolved at send time by
+  // `resolveVideoTranscripts`.
+  transcript?: Promise<VideoTranscript>;
 }
+
+/** Outcome of transcribing a video's audio: the text, or why there is none. */
+export type VideoTranscript = { text: string } | { note: string };
 
 type AttachmentError =
   | { code: 'unsupported_type'; mimeType: string }
@@ -272,8 +287,11 @@ async function extractVideoFramesImpl(
     });
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
+    const srcW = video.videoWidth || 320;
+    const srcH = video.videoHeight || 240;
+    const scale = Math.min(1, VIDEO_FRAME_MAX_EDGE / Math.max(srcW, srcH));
+    canvas.width = Math.round(srcW * scale);
+    canvas.height = Math.round(srcH * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d context unavailable');
 
@@ -297,6 +315,158 @@ async function extractVideoFramesImpl(
  * decoder). Production calls `extract` directly.
  */
 export const videoFrameExtractor = { extract: extractVideoFramesImpl };
+
+// LOCAL-ONLY FORK: videos above this size are not transcribed. The clip is sent
+// base64-encoded (+33%) in one JSON-RPC body, and the core caps bodies at 64 MB.
+export const ATTACHMENT_MAX_TRANSCRIBE_BYTES = 40 * 1024 * 1024; // 40 MB
+
+// Speech models want 16 kHz mono; sending only that keeps the upload small.
+const SPEECH_SAMPLE_RATE = 16_000;
+// Assume the link to the core manages at least this many bytes per second.
+// A remote core over a slow relay cannot take a whole video in the default 30s.
+const MIN_UPLOAD_BYTES_PER_SEC = 20_000;
+
+/** RPC budget for an STT upload of `bytes`: 30s plus time to send the base64 body. */
+export function transcribeTimeoutMs(bytes: number): number {
+  const base64Bytes = Math.ceil(bytes / 3) * 4;
+  return 30_000 + Math.ceil(base64Bytes / MIN_UPLOAD_BYTES_PER_SEC) * 1000;
+}
+
+/** Encode mono float samples as a 16-bit PCM WAV blob. */
+export function encodeWav16(samples: Float32Array, sampleRate: number): Blob {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeAscii = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+/**
+ * Decode a video's audio track in the browser and return it as 16 kHz mono WAV,
+ * usually a small fraction of the video's size. Returns null when the browser
+ * has no Web Audio decoder (tests, old webviews); throws when the file has no
+ * audio track the browser can decode.
+ */
+async function extractSpeechAudioImpl(file: File): Promise<Blob | null> {
+  if (typeof OfflineAudioContext === 'undefined') return null;
+  // decodeAudioData resamples to the context's rate.
+  const ctx = new OfflineAudioContext(1, 1, SPEECH_SAMPLE_RATE);
+  const decoded = await ctx.decodeAudioData(await file.arrayBuffer());
+  const mono = new Float32Array(decoded.length);
+  for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+    const data = decoded.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) mono[i] += data[i] / decoded.numberOfChannels;
+  }
+  return encodeWav16(mono, decoded.sampleRate);
+}
+
+/** Indirection seam so unit tests can stub audio extraction (jsdom has no decoder). */
+export const speechAudioExtractor = { extract: extractSpeechAudioImpl };
+
+/**
+ * Indirection seam so unit tests can stub transcription. Production extracts
+ * the speech audio in the browser and sends only that to
+ * `openhuman.voice_stt_dispatch`; without a decoder it sends the clip itself
+ * and the STT provider (whisper with ffmpeg conversion) extracts the audio.
+ */
+export const videoTranscriber = {
+  transcribe: async (file: File): Promise<string> => {
+    let audio: Blob | null;
+    try {
+      audio = await speechAudioExtractor.extract(file);
+    } catch (err) {
+      // No audio track, or a codec this browser cannot decode (Chromium builds
+      // without AAC). Let the STT provider's ffmpeg try the clip itself.
+      debug(
+        '[attachments] video %s: browser could not decode audio, sending clip: %O',
+        file.name,
+        err
+      );
+      audio = null;
+    }
+    const upload = audio ?? file;
+    const fileName = audio ? `${file.name.replace(/\.[^.]+$/, '')}.wav` : file.name;
+    debug(
+      '[attachments] video %s: uploading %s (%d bytes, video was %d)',
+      file.name,
+      audio ? 'extracted speech audio' : 'whole clip',
+      upload.size,
+      file.size
+    );
+    return transcribeWithFactory(upload, {
+      mimeType: upload.type,
+      fileName,
+      timeoutMs: transcribeTimeoutMs(upload.size),
+    });
+  },
+};
+
+/**
+ * Start transcribing a video's audio. The returned promise never rejects: a
+ * missing transcript must not block the message, so failures become a note
+ * the agent is told about instead.
+ */
+export function startVideoTranscript(file: File): Promise<VideoTranscript> {
+  if (file.size > ATTACHMENT_MAX_TRANSCRIBE_BYTES) {
+    debug('[attachments] video %s too large to transcribe (%d bytes)', file.name, file.size);
+    return Promise.resolve({ note: 'the video is too large to transcribe (over 40 MB)' });
+  }
+  const started = Date.now();
+  debug('[attachments] transcribing video %s (%d bytes)', file.name, file.size);
+  return videoTranscriber
+    .transcribe(file)
+    .then((text): VideoTranscript => {
+      const trimmed = text.trim();
+      debug(
+        '[attachments] video %s transcript chars=%d ms=%d',
+        file.name,
+        trimmed.length,
+        Date.now() - started
+      );
+      return trimmed ? { text: trimmed } : { note: 'no speech was detected in the video' };
+    })
+    .catch((err: unknown): VideoTranscript => {
+      const reason = err instanceof Error ? err.message : String(err);
+      debug('[attachments] video %s transcription failed: %s', file.name, reason);
+      return { note: `the video could not be transcribed (${reason})` };
+    });
+}
+
+/**
+ * Wait for every video attachment's transcript and render them as plain text
+ * for the agent, one block per video. Returns '' when there are no videos.
+ */
+export async function resolveVideoTranscripts(attachments: Attachment[]): Promise<string> {
+  const videos = attachments.filter(a => a.kind === 'video' && a.transcript);
+  if (videos.length === 0) return '';
+  const blocks = await Promise.all(
+    videos.map(async a => {
+      const result = await (a.transcript as Promise<VideoTranscript>);
+      return 'text' in result
+        ? `[Transcript of ${a.file.name}]\n${result.text}`
+        : `[No transcript for ${a.file.name}: ${result.note}]`;
+    })
+  );
+  return blocks.join('\n\n');
+}
 
 export function extractVideoFrames(file: File, count?: number): Promise<string[]> {
   return videoFrameExtractor.extract(file, count);
@@ -375,6 +545,7 @@ export async function validateAndReadFile(
           payloadSizeBytes: file.size,
           compressed: false,
           frames,
+          transcript: startVideoTranscript(file),
         },
       };
     }

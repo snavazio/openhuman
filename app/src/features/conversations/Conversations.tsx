@@ -53,6 +53,7 @@ import {
   buildMessageWithAttachments,
   imageMarkerCost,
   parseMessageImages,
+  resolveVideoTranscripts,
   validateAndReadFile,
 } from '../../lib/attachments';
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
@@ -1199,7 +1200,12 @@ const Conversations = ({
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
-    const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
+    // LOCAL-ONLY FORK: give the agent each video's spoken audio as text.
+    const videoTranscripts = await resolveVideoTranscripts(pendingAttachments);
+    const messageText = buildMessageWithAttachments(
+      [trimmed, videoTranscripts].filter(Boolean).join('\n\n'),
+      pendingAttachments
+    );
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
       content: trimmed,
@@ -1329,7 +1335,12 @@ const Conversations = ({
     if (!normalized && pendingAttachments.length === 0) return;
 
     const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
-    const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
+    // LOCAL-ONLY FORK: give the agent each video's spoken audio as text.
+    const videoTranscripts = await resolveVideoTranscripts(pendingAttachments);
+    const messageText = buildMessageWithAttachments(
+      [normalized, videoTranscripts].filter(Boolean).join('\n\n'),
+      pendingAttachments
+    );
     // Build the full user message exactly like a normal send (content +
     // attachment metadata) so the follow-up persists identically when it is
     // flushed into the transcript on turn end. Guard `crypto.randomUUID` like
