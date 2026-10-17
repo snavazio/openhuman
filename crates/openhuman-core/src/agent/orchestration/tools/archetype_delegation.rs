@@ -129,6 +129,13 @@ impl Tool for ArchetypeDelegationTool {
 }
 
 /// Execute an archetype hand-off with an explicit child run carrier.
+/// Delegate name of the image-reading specialist (`vision_agent`).
+const ANALYZE_IMAGE_TOOL: &str = "analyze_image";
+
+/// Task used when `analyze_image` is called without a prompt.
+const DEFAULT_ANALYZE_IMAGE_PROMPT: &str = "Describe what is shown in detail, including any \
+on-screen text, people, objects and what is happening.";
+
 pub(crate) async fn execute_archetype_delegation(
     agent_id: &str,
     tool_name: &str,
@@ -180,6 +187,19 @@ pub(crate) async fn execute_archetype_delegation_with_live_parent(
         .trim()
         .to_string();
 
+    // LOCAL-ONLY FORK: local chat models (gpt-oss via llama.cpp native tools)
+    // reach `analyze_image` through `use_skill` and routinely omit `prompt`,
+    // which used to fail the whole turn. For image reading there is an obvious
+    // default task, so use it instead of failing; every other delegate still
+    // requires an explicit prompt.
+    let raw_prompt = if raw_prompt.is_empty() && tool_name == ANALYZE_IMAGE_TOOL {
+        log::info!(
+            "[delegation] {tool_name}: no prompt supplied, using the default describe prompt"
+        );
+        DEFAULT_ANALYZE_IMAGE_PROMPT.to_string()
+    } else {
+        raw_prompt
+    };
     if raw_prompt.is_empty() {
         return Ok(ToolResult::error(format!(
             "{}: `prompt` is required",

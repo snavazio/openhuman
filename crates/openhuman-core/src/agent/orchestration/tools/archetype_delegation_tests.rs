@@ -211,3 +211,24 @@ async fn execute_accepts_non_empty_prompt_and_reaches_dispatch_path() {
         "non-empty prompt should bypass local validation, got: {out}"
     );
 }
+
+/// LOCAL-ONLY FORK: `analyze_image` falls back to a default describe prompt
+/// instead of failing when the model omits `prompt`; other delegates still
+/// reject a missing prompt (see `execute_rejects_missing_or_blank_prompt`).
+#[tokio::test]
+async fn analyze_image_without_prompt_uses_the_default_describe_prompt() {
+    let _ = AgentDefinitionRegistry::init_global_builtins();
+    let tool = ArchetypeDelegationTool {
+        tool_name: "analyze_image".to_string(),
+        agent_id: DelegationTarget("vision_agent".to_string()),
+        tool_description: "Read images.".to_string(),
+    };
+    for args in [json!({}), json!({ "prompt": "   " })] {
+        let out = tool.execute(args).await.unwrap().output();
+        assert!(
+            !out.contains("`prompt` is required"),
+            "analyze_image must default its prompt, got: {out}"
+        );
+    }
+    assert!(DEFAULT_ANALYZE_IMAGE_PROMPT.contains("on-screen text"));
+}
