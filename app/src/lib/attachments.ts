@@ -83,9 +83,11 @@ export const ATTACHMENT_MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 // LOCAL-ONLY FORK: 8 (was 2) so the vision model sees the clip's progression,
 // not just two moments; 1 video + 4 images fits the 12-marker budget.
 export const VIDEO_FRAME_COUNT = 8;
-// Longest side of a sampled frame. Vision models downscale to roughly this
-// anyway (Gemma 3: 896 px), and smaller frames keep a slow upload short.
-export const VIDEO_FRAME_MAX_EDGE = 1024;
+// Shorter side of a sampled frame. Gemma 3 resizes every image to 896x896, so
+// capping the *longest* side squeezed a portrait phone recording to ~470 px wide
+// and on-screen prices became unreadable. Keep the short side at the model's
+// input size and only shrink larger sources.
+export const VIDEO_FRAME_SHORT_EDGE = 896;
 
 export interface Attachment {
   id: string;
@@ -289,7 +291,7 @@ async function extractVideoFramesImpl(
     const canvas = document.createElement('canvas');
     const srcW = video.videoWidth || 320;
     const srcH = video.videoHeight || 240;
-    const scale = Math.min(1, VIDEO_FRAME_MAX_EDGE / Math.max(srcW, srcH));
+    const scale = Math.min(1, VIDEO_FRAME_SHORT_EDGE / Math.min(srcW, srcH));
     canvas.width = Math.round(srcW * scale);
     canvas.height = Math.round(srcH * scale);
     const ctx = canvas.getContext('2d');
