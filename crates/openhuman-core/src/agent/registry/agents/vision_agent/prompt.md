@@ -28,7 +28,10 @@ task only asks for a description, and even for small text on a screen inside
 the photo. Write "no legible text" for an image that has none, and mark a
 character you cannot make out with `?` rather than guessing. Only then give the
 description or answer. Several images are often frames of one video, so text
-that changes between frames matters.
+that changes between frames matters. A tall phone-video frame may arrive as two
+consecutive images, its top half then its bottom half, overlapping in the
+middle: treat each such pair as one screen and do not report overlapping text
+twice.
 
 ## How to work
 

@@ -50,8 +50,8 @@ import {
   type Attachment,
   ATTACHMENT_MAX_FILES,
   ATTACHMENT_MAX_IMAGES,
+  attachmentImageMarkerCost,
   buildMessageWithAttachments,
-  imageMarkerCost,
   parseMessageImages,
   resolveVideoTranscripts,
   validateAndReadFile,
@@ -1066,7 +1066,7 @@ const Conversations = ({
     // Images and videos share one image-marker budget (video = its frames), so
     // track consumed markers rather than per-kind counts.
     let acceptedImageMarkers = admitted.reduce(
-      (sum, attachment) => sum + imageMarkerCost(attachment.kind),
+      (sum, attachment) => sum + attachmentImageMarkerCost(attachment),
       0
     );
     for (const file of Array.from(files)) {
@@ -1114,7 +1114,7 @@ const Conversations = ({
       if (result.attachment.kind === 'file') {
         acceptedFileCount++;
       } else {
-        acceptedImageMarkers += imageMarkerCost(result.attachment.kind);
+        acceptedImageMarkers += attachmentImageMarkerCost(result.attachment);
       }
       // Ref first, synchronously: the next queued run counts what this one just
       // took, without waiting for React to commit the state update.

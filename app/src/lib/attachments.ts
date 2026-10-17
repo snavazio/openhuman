@@ -72,9 +72,10 @@ const EXTRACTABLE_FILE_MIME_TYPES = ['application/pdf', 'text/plain', 'text/mark
 // `multimodal.max_images` (crates/openhuman-core/src/config/schema/tools/multimodal.rs) — the
 // core counts every `[IMAGE:]` marker (frames included) and errors on overflow,
 // so the composer must budget images + video frames against this single cap.
-// LOCAL-ONLY FORK: 12, matching `[multimodal] max_images = 12` in the evo-x2
-// profile, so one video's VIDEO_FRAME_COUNT frames fit beside a few images.
-export const ATTACHMENT_MAX_IMAGES = 12;
+// LOCAL-ONLY FORK: 16 (the core's ceiling), matching `[multimodal] max_images`
+// in the evo-x2 profile, so a tall video's split frames (VIDEO_MAX_IMAGE_MARKERS)
+// fit; a landscape video's 8 frames leave room for 8 images.
+export const ATTACHMENT_MAX_IMAGES = 16;
 export const ATTACHMENT_MAX_FILES = 4;
 export const ATTACHMENT_MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ATTACHMENT_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
@@ -88,6 +89,16 @@ export const VIDEO_FRAME_COUNT = 8;
 // and on-screen prices became unreadable. Keep the short side at the model's
 // input size and only shrink larger sources.
 export const VIDEO_FRAME_SHORT_EDGE = 896;
+// LOCAL-ONLY FORK: a frame at least this many times taller than wide (a phone
+// recording) is sent as a top and a bottom half. Squashed whole into the
+// model's square input, small on-screen text shrank to a few pixels and prices
+// were misread; each half reaches the model at about twice the vertical size.
+export const VIDEO_TALL_FRAME_RATIO = 1.6;
+// Each half covers this share of the frame height, so a line of text on the
+// cut is whole in at least one half.
+export const VIDEO_HALF_FRAME_SHARE = 0.55;
+// Worst-case image markers one video can cost: every frame split in two.
+export const VIDEO_MAX_IMAGE_MARKERS = VIDEO_FRAME_COUNT * 2;
 
 export interface Attachment {
   id: string;
@@ -103,6 +114,9 @@ export interface Attachment {
   // expanded into `[IMAGE:]` markers at send time. The chip itself shows a
   // single poster (the first frame) via `previewUri`.
   frames?: string[];
+  // LOCAL-ONLY FORK: only set for `kind: 'video'`. True when each sampled moment
+  // was sent as two images (top half, then bottom half); see VIDEO_TALL_FRAME_RATIO.
+  framesSplit?: boolean;
   // LOCAL-ONLY FORK: only set for `kind: 'video'`. The clip's spoken audio,
   // transcribed in the background from the moment it is attached (see
   // `startVideoTranscript`). Never rejects; resolved at send time by
@@ -297,14 +311,35 @@ async function extractVideoFramesImpl(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d context unavailable');
 
+    const split = srcH >= srcW * VIDEO_TALL_FRAME_RATIO;
+    const half = document.createElement('canvas');
+    half.width = canvas.width;
+    half.height = Math.round(canvas.height * VIDEO_HALF_FRAME_SHARE);
+    const halfCtx = half.getContext('2d');
+    if (split && !halfCtx) throw new Error('canvas 2d context unavailable');
+
     const frames: string[] = [];
     for (const fraction of sampleFractions(count)) {
       const target = duration ? Math.min(duration * fraction, Math.max(duration - 0.05, 0)) : 0;
       await seekVideo(video, target);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push(canvas.toDataURL('image/jpeg', 0.7));
+      if (split && halfCtx) {
+        for (const top of [0, canvas.height - half.height]) {
+          halfCtx.drawImage(canvas, 0, top, half.width, half.height, 0, 0, half.width, half.height);
+          frames.push(half.toDataURL('image/jpeg', 0.7));
+        }
+      } else {
+        frames.push(canvas.toDataURL('image/jpeg', 0.7));
+      }
     }
-    debug('[chat:attachments] video_frames name=%s count=%d', file.name, frames.length);
+    debug(
+      '[chat:attachments] video_frames name=%s count=%d split=%s size=%dx%d',
+      file.name,
+      frames.length,
+      split,
+      srcW,
+      srcH
+    );
     return frames;
   } finally {
     URL.revokeObjectURL(url);
@@ -474,11 +509,20 @@ export function extractVideoFrames(file: File, count?: number): Promise<string[]
   return videoFrameExtractor.extract(file, count);
 }
 
-/** Image-marker cost of an attachment kind (video = its sampled frames). */
+/**
+ * Image-marker cost of an attachment kind, checked before a file is read. A
+ * video is charged its worst case (every frame split in two).
+ */
 export function imageMarkerCost(kind: AttachmentKind): number {
   if (kind === 'image') return 1;
-  if (kind === 'video') return VIDEO_FRAME_COUNT;
+  if (kind === 'video') return VIDEO_MAX_IMAGE_MARKERS;
   return 0;
+}
+
+/** Image markers an admitted attachment actually costs (a video: its frames). */
+export function attachmentImageMarkerCost(attachment: Attachment): number {
+  if (attachment.kind === 'video') return attachment.frames?.length ?? imageMarkerCost('video');
+  return imageMarkerCost(attachment.kind);
 }
 
 export async function validateAndReadFile(
@@ -547,6 +591,7 @@ export async function validateAndReadFile(
           payloadSizeBytes: file.size,
           compressed: false,
           frames,
+          framesSplit: frames.length > VIDEO_FRAME_COUNT,
           transcript: startVideoTranscript(file),
         },
       };
@@ -588,7 +633,10 @@ export function buildMessageWithAttachments(text: string, attachments: Attachmen
       if (a.kind === 'file') return `[FILE:${a.dataUri}]`;
       // Video: forward each sampled still as its own image marker so the agent
       // "sees" the clip through the existing vision path.
-      return (a.frames ?? []).map(frame => `[IMAGE:${frame}]`).join(' ');
+      const markers = (a.frames ?? []).map(frame => `[IMAGE:${frame}]`).join(' ');
+      if (!a.framesSplit || !markers) return markers;
+      const moments = Math.ceil((a.frames ?? []).length / 2);
+      return `[Video ${a.file.name}: ${moments} moments in order; each moment is two images, its top half then its bottom half, overlapping in the middle] ${markers}`;
     })
     .filter(marker => marker.length > 0)
     .join(' ');

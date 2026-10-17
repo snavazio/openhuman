@@ -9,6 +9,7 @@ import {
   ATTACHMENT_MAX_IMAGES,
   ATTACHMENT_MAX_TRANSCRIBE_BYTES,
   ATTACHMENT_MAX_VIDEO_SIZE_BYTES,
+  attachmentImageMarkerCost,
   attachmentKindForMime,
   buildMessageWithAttachments,
   encodeWav16,
@@ -25,6 +26,7 @@ import {
   transcribeTimeoutMs,
   validateAndReadFile,
   VIDEO_FRAME_COUNT,
+  VIDEO_MAX_IMAGE_MARKERS,
   videoFrameExtractor,
   videoTranscriber,
 } from './attachments';
@@ -216,10 +218,14 @@ describe('video attachments', () => {
     expect(attachmentKindForMime('video/mp4')).toBe('video');
   });
 
-  it('costs 1 image marker per image and VIDEO_FRAME_COUNT per video', () => {
+  it('charges a video its worst case up front and its real frames once admitted', () => {
     expect(imageMarkerCost('image')).toBe(1);
-    expect(imageMarkerCost('video')).toBe(VIDEO_FRAME_COUNT);
+    expect(imageMarkerCost('video')).toBe(VIDEO_MAX_IMAGE_MARKERS);
+    expect(VIDEO_MAX_IMAGE_MARKERS).toBe(VIDEO_FRAME_COUNT * 2);
     expect(imageMarkerCost('file')).toBe(0);
+    const landscape = makeAttachment({ kind: 'video', frames: ['a', 'b', 'c'] });
+    expect(attachmentImageMarkerCost(landscape)).toBe(3);
+    expect(attachmentImageMarkerCost(makeAttachment())).toBe(1);
   });
 
   it('rejects video when allowImages is false (non-vision model)', async () => {
@@ -249,11 +255,19 @@ describe('video attachments', () => {
   });
 
   it('rejects a video that partially overflows the budget (images + frames)', async () => {
-    // One image used (1 marker); a video costs VIDEO_FRAME_COUNT more. With the
-    // default budget of 4, 1 + 2 = 3 fits, but seed close to the cap to overflow.
-    const used = ATTACHMENT_MAX_IMAGES - (VIDEO_FRAME_COUNT - 1); // leaves < cost
+    // A video is admitted only if its worst case (every frame split) fits.
+    const used = ATTACHMENT_MAX_IMAGES - (VIDEO_MAX_IMAGE_MARKERS - 1); // leaves < cost
     const result = await validateAndReadFile(makeFile('c.mp4', 'video/mp4', 8), used, 0, true);
     expect('error' in result && result.error.code).toBe('too_many');
+  });
+
+  it('marks a video whose frames were split into halves', async () => {
+    const frames = Array.from({ length: VIDEO_MAX_IMAGE_MARKERS }, (_, i) => `data:f${i}`);
+    vi.spyOn(videoFrameExtractor, 'extract').mockResolvedValue(frames);
+    vi.spyOn(videoTranscriber, 'transcribe').mockResolvedValue('');
+    const result = await validateAndReadFile(makeFile('tall.mp4', 'video/mp4', 64), 0, 0, true);
+    expect('attachment' in result && result.attachment.framesSplit).toBe(true);
+    if ('attachment' in result) expect(attachmentImageMarkerCost(result.attachment)).toBe(16);
   });
 
   it('samples frames and returns a video attachment within budget', async () => {
@@ -405,6 +419,19 @@ describe('buildMessageWithAttachments', () => {
     const result = buildMessageWithAttachments('watch', [video]);
     expect(result).toBe(
       'watch [IMAGE:data:image/jpeg;base64,f1] [IMAGE:data:image/jpeg;base64,f2]'
+    );
+  });
+
+  it('labels split tall-video frames as top and bottom halves', () => {
+    const video = makeAttachment({
+      kind: 'video',
+      file: makeFile('phone.mp4', 'video/mp4'),
+      mimeType: 'video/mp4',
+      frames: ['data:t1', 'data:b1', 'data:t2', 'data:b2'],
+      framesSplit: true,
+    });
+    expect(buildMessageWithAttachments('look', [video])).toBe(
+      'look [Video phone.mp4: 2 moments in order; each moment is two images, its top half then its bottom half, overlapping in the middle] [IMAGE:data:t1] [IMAGE:data:b1] [IMAGE:data:t2] [IMAGE:data:b2]'
     );
   });
 
